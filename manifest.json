@@ -1,0 +1,69 @@
+{
+  "manifest_version": 3,
+  "name": "TD;DW",
+  "version": "0.1.0",
+  "description": "Too Distracted, Didn't Watch — spoiler-free recap of what you're watching, up to the current timestamp.",
+  "permissions": ["storage", "scripting"],
+  "host_permissions": ["https://openrouter.ai/*"],
+  "optional_host_permissions": ["https://*/*", "http://*/*"],
+  "background": {
+    "service_worker": "background/service-worker.js",
+    "type": "module"
+  },
+  "action": {
+    "default_title": "TD;DW — catch me up",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "32": "icons/icon32.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
+  },
+  "options_page": "options/options.html",
+  "commands": {
+    "toggle-recap": {
+      "suggested_key": { "default": "Alt+Shift+U" },
+      "description": "Show/hide spoiler-free recap"
+    }
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "*://www.youtube.com/*",
+        "*://www.netflix.com/*",
+        "*://*.primevideo.com/*",
+        "*://www.disneyplus.com/*"
+      ],
+      "js": [
+        "content/adapters/youtube-transcript.js",
+        "content/adapters/youtube.js",
+        "content/adapters/dom-video-adapter.js",
+        "content/adapters/netflix.js",
+        "content/adapters/primevideo.js",
+        "content/adapters/disneyplus.js",
+        "content/adapters/index.js",
+        "content/ui/overlay-styles.js",
+        "content/ui/overlay.js",
+        "content/content.js"
+      ],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "*://www.youtube.com/*",
+        "*://www.netflix.com/*",
+        "*://*.primevideo.com/*",
+        "*://www.disneyplus.com/*"
+      ],
+      "js": ["content/main-world/media-session-probe.js"],
+      "run_at": "document_idle",
+      "world": "MAIN"
+    }
+  ],
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}

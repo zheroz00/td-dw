@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>TD;DW — Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <main>
+    <h1>TD;DW settings</h1>
+
+    <label for="provider">Provider</label>
+    <select id="provider">
+      <option value="openrouter">OpenRouter</option>
+      <option value="gemini">Google Gemini (AI Studio)</option>
+      <option value="custom">Custom / Local</option>
+    </select>
+    <p class="hint">Picking a provider fills in the endpoint below. Gemini uses your
+      <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener">AI Studio</a> API key.</p>
+
+    <label for="baseUrl">API base URL</label>
+    <input id="baseUrl" type="url" placeholder="https://openrouter.ai/api/v1">
+    <p class="hint">Set automatically by the provider above. For a local model use its OpenAI-compatible
+      endpoint, e.g. <code>http://localhost:11434/v1</code> (Ollama) — you'll get a one-time permission prompt on Save.</p>
+
+    <label for="apiKey">API key</label>
+    <input id="apiKey" type="password" placeholder="sk-or-...">
+    <p class="hint">Stored only in this browser (chrome.storage.local). Leave empty for local endpoints that don't need one.</p>
+
+    <label for="model">Model</label>
+    <input id="model" type="text" placeholder="openai/gpt-4o-mini">
+
+    <label for="summaryLength">Summary length</label>
+    <select id="summaryLength">
+      <option value="short">Short (3–5 bullets)</option>
+      <option value="medium">Medium (5–8 bullets)</option>
+      <option value="detailed">Detailed (8–12 bullets)</option>
+    </select>
+
+    <label for="jellyfinUrl">Jellyfin server URL <span class="optional">(optional)</span></label>
+    <input id="jellyfinUrl" type="url" placeholder="http://jellyfin.local:8096">
+    <p class="hint">Enables recaps on your Jellyfin web player, built from the actual subtitle
+      files in your library. Leave empty to disable. You'll get a one-time permission prompt on Save;
+      titles without text subtitles fall back to a knowledge-based recap.</p>
+
+    <label class="checkbox">
+      <input id="pauseOnOpen" type="checkbox">
+      Pause the video when the recap opens
+    </label>
+
+    <div class="buttons">
+      <button id="save">Save</button>
+      <button id="test" class="secondary">Test connection</button>
+    </div>
+    <p id="status" class="hint" role="status"></p>
+  </main>
+  <script type="module" src="options.js"></script>
+</body>
+</html>
