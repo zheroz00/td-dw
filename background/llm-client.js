@@ -13,13 +13,28 @@ export async function chatCompletion(config, messages, { maxTokens = 8192, tempe
     throw new Error('No model configured. Open the extension options.');
   }
 
+  // Warn (don't block — local endpoints are legitimately http://) if a key would
+  // travel to a non-local host in cleartext.
+  if (config.apiKey && /^http:\/\//i.test(baseUrl)) {
+    try {
+      const host = new URL(baseUrl).hostname;
+      const isLocal =
+        host === 'localhost' || host === '127.0.0.1' || host === '::1' || host.endsWith('.local');
+      if (!isLocal) {
+        console.warn(
+          `[TD;DW] Sending your API key to a non-local http:// endpoint (${host}) in cleartext — use https:// for remote endpoints.`
+        );
+      }
+    } catch { /* malformed URL — the fetch below will surface it */ }
+  }
+
   const headers = { 'Content-Type': 'application/json' };
   if (config.apiKey) {
     headers['Authorization'] = `Bearer ${config.apiKey}`;
   }
   if (baseUrl.includes('openrouter.ai')) {
     // OpenRouter uses these for app attribution/rankings.
-    headers['HTTP-Referer'] = 'https://github.com/captain-awesome/td-dw';
+    headers['HTTP-Referer'] = 'https://github.com/zheroz00/td-dw';
     headers['X-Title'] = 'TD;DW';
   }
 

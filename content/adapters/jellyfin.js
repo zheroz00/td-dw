@@ -101,13 +101,24 @@ globalThis.TDDW = globalThis.TDDW || { adapters: [] };
   // If the transcript is too long, sample lines evenly so the recap covers the
   // whole span (start → now), not just the beginning. Mirrors the YouTube cap.
   function capTranscript(lines) {
-    let text = lines.join('\n');
+    const text = lines.join('\n');
     if (text.length <= MAX_TRANSCRIPT_CHARS) return { text, truncated: false };
     const keepRatio = MAX_TRANSCRIPT_CHARS / text.length;
     const sampled = lines.filter((_, i) => Math.floor(i * keepRatio) !== Math.floor((i - 1) * keepRatio));
-    text = sampled.join('\n').slice(0, MAX_TRANSCRIPT_CHARS);
-    console.warn(`[TD;DW] transcript truncated: kept ~${Math.round(keepRatio * 100)}% of ${lines.length} lines`);
-    return { text, truncated: true };
+    // Even sampling can still overshoot when line lengths vary. Trim whole lines
+    // from the OLDEST end so the most recent events (closest to "now") always
+    // survive and no line is cut mid-token — a naive slice(0, MAX) would drop
+    // the newest lines instead.
+    const kept = [];
+    let total = 0;
+    for (let i = sampled.length - 1; i >= 0; i--) {
+      const len = sampled[i].length + 1; // +1 for the joining newline
+      if (kept.length && total + len > MAX_TRANSCRIPT_CHARS) break;
+      kept.unshift(sampled[i]);
+      total += len;
+    }
+    console.warn(`[TD;DW] transcript truncated: kept ${kept.length} of ${lines.length} lines`);
+    return { text: kept.join('\n'), truncated: true };
   }
 
   // Cache the last item lookup so getVideoState() and getTranscriptUpTo() (called

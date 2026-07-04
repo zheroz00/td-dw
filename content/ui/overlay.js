@@ -210,7 +210,10 @@ globalThis.TDDW.overlay = (() => {
     setContext(videoState);
     const lines = recapText
       .split('\n')
-      .map((l) => l.replace(/^\s*(?:[-*•]|\d+[.)])\s*/, '').trim())
+      // Strip a leading list marker. `*` is only a bullet when it's a lone
+      // asterisk — `\*(?!\*)` leaves a line that opens with **bold** intact
+      // instead of eating one of its markers.
+      .map((l) => l.replace(/^\s*(?:[-•]|\*(?!\*)|\d+[.)])\s*/, '').trim())
       .filter(Boolean);
     els.body.innerHTML = '';
     const badge = renderSourceBadge(source);

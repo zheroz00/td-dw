@@ -15,14 +15,16 @@ globalThis.TDDW = globalThis.TDDW || { adapters: [] };
 
   function decodeEntities(text) {
     return text
-      .replace(/&amp;/g, '&')
       .replace(/&lt;/g, '<')
       .replace(/&gt;/g, '>')
       .replace(/&quot;/g, '"')
       .replace(/&#39;/g, "'")
       .replace(/&apos;/g, "'")
       .replace(/&#x([0-9a-fA-F]+);/g, (_, hex) => String.fromCodePoint(parseInt(hex, 16)))
-      .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)));
+      .replace(/&#(\d+);/g, (_, dec) => String.fromCodePoint(parseInt(dec, 10)))
+      // &amp; must be decoded LAST: doing it first would let a literal
+      // "&amp;lt;" collapse to "<" instead of the intended "&lt;".
+      .replace(/&amp;/g, '&');
   }
 
   // Prefer a human-made track in the UI language, then English, then
@@ -109,4 +111,7 @@ globalThis.TDDW = globalThis.TDDW || { adapters: [] };
   };
 
   globalThis.TDDW.pickCaptionTrack = pickCaptionTrack;
+  // Shared so the page-captions fallback in youtube.js can prefix its lines with
+  // the same [m:ss] timestamps the InnerTube path produces.
+  globalThis.TDDW.formatTimestamp = formatTimestamp;
 })();
