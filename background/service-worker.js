@@ -136,10 +136,13 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
 
   if (msg?.type === 'TEST_LLM') {
     // This merges a caller-supplied endpoint override and then sends the stored
-    // API key to it — so only accept it from the extension's own pages (the
-    // options UI), never from a content script running inside a web page.
-    if (sender.tab) {
-      sendResponse({ ok: false, error: 'TEST_LLM is not allowed from a content script.' });
+    // API key to it — so only accept it from one of the extension's own pages
+    // (the options UI), never from a content script running inside a web page.
+    // Note: sender.tab is NOT a usable discriminator — the options page runs in
+    // a tab too, so it's set for both. Match the sender URL's extension origin.
+    const fromOwnPage = sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
+    if (!fromOwnPage) {
+      sendResponse({ ok: false, error: 'TEST_LLM is only allowed from the extension options page.' });
       return true;
     }
     (async () => {
