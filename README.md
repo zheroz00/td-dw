@@ -53,6 +53,39 @@ reads your logged-in session token from the page (no separate API key), and pull
 — movies included. Items with only image-based subs (PGS/VOBSUB) or no subs fall back to
 knowledge mode automatically.
 
+## Permissions & privacy
+
+**What it sends, and where.** TD;DW has no backend, no analytics, no telemetry. The only
+thing that leaves your machine is the recap request — the title, plus (in transcript mode)
+the subtitles up to your current timestamp — and it goes **only to the LLM endpoint you
+configure, with your own API key**. Nothing is logged, and nothing phones home. (The sole
+extra outbound header is an `HTTP-Referer`/`X-Title` on OpenRouter requests, which OpenRouter
+uses for app attribution — it says nothing about you.)
+
+**Why the permissions look the way they do:**
+
+- **`storage`** — saves your settings (provider, model, Jellyfin URL) in `chrome.storage.local`.
+  Your API key lives here and never leaves except as the `Authorization` header to *your*
+  endpoint.
+- **`scripting`** — registers the Jellyfin adapter on your server's own origin at runtime
+  (that address isn't known at build time, so it can't be a static entry).
+- **Default site access is deliberately minimal** — the extension only auto-runs on
+  **YouTube, Netflix, Prime Video, and Disney+** (the `content_scripts` block in the
+  manifest), plus `openrouter.ai` for the default provider. That's it on install.
+- **The broad optional host permission (`https://*/*`, `http://*/*`) is _not_ granted on
+  install.** It exists so that *if* you point TD;DW at a custom LLM endpoint or your own
+  Jellyfin server, it can request access to **that one origin** — you'll get the normal Chrome
+  prompt for the specific host, nothing wider. Stick to OpenRouter/Gemini on the built-in
+  sites and it's never requested.
+
+**Honest caveats:**
+
+- In transcript mode your subtitles are sent to a third-party model; in knowledge mode only
+  the title is. Either way, a cloud LLM sees whatever you send it — pick an endpoint you trust
+  (or run a local one).
+- YouTube captions are fetched through YouTube's internal InnerTube API — a technique, not an
+  official/supported endpoint — so that path can break when YouTube changes things.
+
 ## Architecture (for future me)
 
 - **Content scripts share `globalThis.TDDW`** (no build step); the manifest loads them in
@@ -97,6 +130,12 @@ knowledge mode automatically.
 - Polish pass: shortcut-collision check, options UX, a "(partial)" note when a very long
   transcript gets sampled down.
 - Package for the Chrome Web Store.
+
+## Credits
+
+- YouTube caption retrieval is adapted from the technique in the open-source
+  [`youtube-transcript`](https://www.npmjs.com/package/youtube-transcript) package (MIT) —
+  the InnerTube ANDROID-client recipe — reworked here for a browser content-script context.
 
 ## License
 
