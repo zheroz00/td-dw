@@ -44,54 +44,56 @@ async function unregisterJellyfin() {
 }
 
 // Idempotent: unregister then (re)register for the current config. Safe to call
-// on install, startup, and whenever the options page saves.
+// on install, startup, and whenever the options page saves. Intentional no-ops
+// (no URL, invalid URL, permission not yet granted) return quietly; a genuine
+// registration failure REJECTS so the caller (options save) can surface it
+// instead of the user seeing "Saved" while the adapter never loaded.
 async function syncJellyfinScripts() {
+  await unregisterJellyfin();
+  const { jellyfinUrl } = await getConfig();
+  if (!jellyfinUrl) return;
+
+  let pattern;
   try {
-    await unregisterJellyfin();
-    const { jellyfinUrl } = await getConfig();
-    if (!jellyfinUrl) return;
-
-    let pattern;
-    try {
-      pattern = originPattern(jellyfinUrl);
-    } catch {
-      console.warn('[TD;DW] invalid jellyfinUrl, not registering:', jellyfinUrl);
-      return;
-    }
-    // The host permission is requested from the options page (a user gesture);
-    // if it isn't granted yet, registration would throw — skip quietly.
-    if (!(await chrome.permissions.contains({ origins: [pattern] }))) {
-      console.warn('[TD;DW] host permission for', pattern, 'not granted; Jellyfin adapter inactive');
-      return;
-    }
-
-    await chrome.scripting.registerContentScripts([
-      {
-        id: JELLYFIN_ISOLATED_ID,
-        matches: [pattern],
-        js: JELLYFIN_ISOLATED_JS,
-        runAt: 'document_idle'
-      },
-      {
-        id: JELLYFIN_MAIN_ID,
-        matches: [pattern],
-        js: JELLYFIN_MAIN_JS,
-        runAt: 'document_idle',
-        world: 'MAIN'
-      }
-    ]);
-    console.log('[TD;DW] Jellyfin adapter registered for', pattern);
-  } catch (err) {
-    console.warn('[TD;DW] Jellyfin script sync failed:', err.message);
+    pattern = originPattern(jellyfinUrl);
+  } catch {
+    console.warn('[TD;DW] invalid jellyfinUrl, not registering:', jellyfinUrl);
+    return;
   }
+  // The host permission is requested from the options page (a user gesture);
+  // if it isn't granted yet, registration would throw — skip quietly.
+  if (!(await chrome.permissions.contains({ origins: [pattern] }))) {
+    console.warn('[TD;DW] host permission for', pattern, 'not granted; Jellyfin adapter inactive');
+    return;
+  }
+
+  await chrome.scripting.registerContentScripts([
+    {
+      id: JELLYFIN_ISOLATED_ID,
+      matches: [pattern],
+      js: JELLYFIN_ISOLATED_JS,
+      runAt: 'document_idle'
+    },
+    {
+      id: JELLYFIN_MAIN_ID,
+      matches: [pattern],
+      js: JELLYFIN_MAIN_JS,
+      runAt: 'document_idle',
+      world: 'MAIN'
+    }
+  ]);
+  console.log('[TD;DW] Jellyfin adapter registered for', pattern);
 }
 
+// Fire-and-forget lifecycle hooks: log failures, they have no caller to report to.
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[TD;DW] installed');
-  syncJellyfinScripts();
+  syncJellyfinScripts().catch((err) => console.warn('[TD;DW] Jellyfin script sync failed:', err.message));
 });
 
-chrome.runtime.onStartup.addListener(syncJellyfinScripts);
+chrome.runtime.onStartup.addListener(() => {
+  syncJellyfinScripts().catch((err) => console.warn('[TD;DW] Jellyfin script sync failed:', err.message));
+});
 
 async function toggleOverlay(tab) {
   if (!tab?.id) return;
@@ -117,7 +119,12 @@ chrome.commands.onCommand.addListener((command, tab) => {
   if (command === 'toggle-recap') toggleOverlay(tab);
 });
 
-chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
+chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
+  // Defense-in-depth: only handle messages from our own extension. There's no
+  // externally_connectable entry, so web pages can't reach this today — but this
+  // keeps the handlers (which wield the stored API key) safe if that changes.
+  if (sender.id !== chrome.runtime.id) return;
+
   if (msg?.type === 'GET_RECAP') {
     (async () => {
       const config = await getConfig();
@@ -128,6 +135,13 @@ chrome.runtime.onMessage.addListener((msg, _sender, sendResponse) => {
   }
 
   if (msg?.type === 'TEST_LLM') {
+    // This merges a caller-supplied endpoint override and then sends the stored
+    // API key to it — so only accept it from the extension's own pages (the
+    // options UI), never from a content script running inside a web page.
+    if (sender.tab) {
+      sendResponse({ ok: false, error: 'TEST_LLM is not allowed from a content script.' });
+      return true;
+    }
     (async () => {
       const config = { ...(await getConfig()), ...(msg.configOverride || {}) };
       // Generous budget: reasoning models burn hidden thinking tokens before
