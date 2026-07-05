@@ -140,6 +140,10 @@
     try {
       result = await chrome.runtime.sendMessage(payload);
     } catch (err) {
+      // If a refresh landed while the message was in flight, this failure
+      // belongs to a dead conversation — drop it silently instead of showing an
+      // error / restoring the question into the new panel.
+      if (epoch !== convo.epoch) throw new StaleAnswerError();
       throw new Error(`Extension error: ${err.message}`);
     }
     if (epoch !== convo.epoch) {
