@@ -31,6 +31,7 @@ function readForm() {
     model: $('model').value.trim(),
     summaryLength: $('summaryLength').value,
     pauseOnOpen: $('pauseOnOpen').checked,
+    spoilerFreeAnswers: $('spoilerFreeAnswers').checked,
     jellyfinUrl: $('jellyfinUrl').value.trim().replace(/\/+$/, '')
   };
 }
@@ -42,6 +43,7 @@ async function load() {
   $('model').value = config.model;
   $('summaryLength').value = config.summaryLength;
   $('pauseOnOpen').checked = config.pauseOnOpen;
+  $('spoilerFreeAnswers').checked = config.spoilerFreeAnswers;
   $('jellyfinUrl').value = config.jellyfinUrl;
   $('provider').value = providerFromUrl(config.baseUrl);
 }

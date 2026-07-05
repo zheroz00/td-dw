@@ -80,3 +80,64 @@ export function buildTranscriptMessages(videoState, config) {
     { role: 'user', content: user }
   ];
 }
+
+// Follow-up Q&A: the user asks free-form questions about the title after the
+// recap is shown. Like the recap, answers stay spoiler-free by default
+// (config.spoilerFreeAnswers, on by default) — bounded to events before `now`.
+// Turning it off lets answers draw on the whole plot for people who want the
+// full picture. `history` is the prior [{ question, answer }] turns of THIS
+// panel session.
+export function buildQuestionMessages(videoState, config, recapText, history, question) {
+  const { service, title, episodeInfo, currentTimeSeconds, durationSeconds, transcript } = videoState;
+  const now = formatTime(currentTimeSeconds);
+  const total = formatTime(durationSeconds);
+  const episode = episodeInfo ? ` (${episodeInfo})` : '';
+
+  const common = [
+    `You are TD;DW's follow-up assistant.`,
+    `The user is watching "${title}"${episode} on ${service} and is currently at ${now} of ${total}.`,
+    `They already have a recap; now they're asking follow-up questions.`
+  ];
+
+  const spoilerFree = config.spoilerFreeAnswers
+    ? [
+        `SPOILER RULES:`,
+        `(1) Answer ONLY about events up to ${now}. Never reveal, hint at, or foreshadow anything after that point.`,
+        `(2) If the honest answer would require information from after ${now}, do not give it — reply with one short sentence like "That happens later than where you are — I won't spoil it."`,
+        `(3) If you are unsure whether something happens before or after ${now}, treat it as later and don't reveal it.`
+      ]
+    : [
+        `The user has explicitly opted into COMPLETE answers: you MAY draw on the full plot and your general knowledge, INCLUDING events after ${now}. Do not withhold or hedge to avoid spoilers — answer the question fully.`
+      ];
+
+  const format = [
+    `FORMAT:`,
+    `(a) Answer directly in 1-3 sentences of plain, conversational prose — no bullet points, no preamble, no closing remarks.`,
+    `(b) When a transcript is provided below, prefer it for specifics about what has actually been shown on screen.`,
+    `(c) You may bold one or two key names or terms with **double asterisks**; use no other formatting.`,
+    `(d) If you genuinely don't know, say so briefly rather than inventing an answer.`
+  ];
+
+  const system = [...common, ...spoilerFree, ...format].join(' ');
+
+  let contextBlock = `Here is the spoiler-free recap you gave me for "${title}"${episode} up to ${now}:\n\n${recapText}`;
+  if (transcript?.text) {
+    contextBlock += `\n\nCaption transcript up to ${now} (use for specifics about what's been shown):\n\n${transcript.text}`;
+  }
+
+  // Keep a sliding window of the most recent turns. The recap + transcript
+  // already dominate the token budget; unbounded history would only add latency
+  // and risk overflowing smaller/local context windows.
+  const priorTurns = (history || []).slice(-10).flatMap((turn) => [
+    { role: 'user', content: turn.question },
+    { role: 'assistant', content: turn.answer }
+  ]);
+
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: contextBlock },
+    { role: 'assistant', content: 'Got it — ask me anything about it.' },
+    ...priorTurns,
+    { role: 'user', content: question }
+  ];
+}
