@@ -13,10 +13,23 @@
     }
   }
 
+  // In-memory follow-up conversation, scoped to the current recap. Reset on each
+  // new recap (below) and effectively cleared when the panel closes (reopening
+  // runs a fresh recap). Never persisted. `epoch` bumps on every recap so a
+  // question still in flight when the user hits "Refresh" can't push its answer
+  // into the new conversation.
+  const convo = { state: null, recapText: null, history: [], epoch: 0 };
+
   async function runRecap() {
     const overlay = CMU.overlay;
     const adapter = CMU.getAdapter();
     const state = adapter ? await adapter.getVideoState() : null;
+
+    // A new recap starts a new conversation.
+    convo.epoch++;
+    convo.state = null;
+    convo.recapText = null;
+    convo.history = [];
 
     if (!state) {
       overlay.showError('Start playing a video first — TD;DW works on supported streaming watch pages.');
@@ -83,6 +96,10 @@
       overlay.showUnknown(result.message, state);
     } else {
       overlay.showRecap(result.recapText, state, result.source);
+      // Retain context so follow-up questions can reuse the same transcript /
+      // title grounding.
+      convo.state = state;
+      convo.recapText = result.recapText;
     }
   }
 
@@ -95,7 +112,48 @@
     await runRecap();
   }
 
-  const handlers = { onRefresh: runRecap };
+  // Thrown when a question resolves after its conversation was replaced. The
+  // overlay treats it as a no-op (see the `stale` check in submitQuestion).
+  class StaleAnswerError extends Error {
+    constructor() {
+      super('stale answer');
+      this.stale = true;
+    }
+  }
+
+  // Follow-up Q&A. Returns the answer string (the overlay awaits it) or throws
+  // so the overlay can render the error in the pending answer bubble.
+  async function askQuestion(question) {
+    if (!convo.state) throw new Error('Ask again after a recap has loaded.');
+    // Snapshot the conversation this question belongs to. If the user refreshes
+    // (new epoch) while we await, the answer is discarded rather than grafted
+    // onto the fresh conversation.
+    const epoch = convo.epoch;
+    const payload = {
+      type: 'ASK_QUESTION',
+      videoState: convo.state,
+      recapText: convo.recapText,
+      history: convo.history,
+      question
+    };
+    let result;
+    try {
+      result = await chrome.runtime.sendMessage(payload);
+    } catch (err) {
+      throw new Error(`Extension error: ${err.message}`);
+    }
+    if (epoch !== convo.epoch) {
+      // Recap was refreshed out from under this question; drop it silently so
+      // the overlay leaves the (now detached) pending bubble alone.
+      throw new StaleAnswerError();
+    }
+    if (!result) throw new Error('No response from the extension — try reloading it in chrome://extensions.');
+    if (!result.ok) throw new Error(result.error || 'The model didn’t answer.');
+    convo.history.push({ question, answer: result.answer });
+    return result.answer;
+  }
+
+  const handlers = { onRefresh: runRecap, onAsk: askQuestion };
   // Seekable time chips only where setting video.currentTime is safe —
   // Netflix & co. require their own player APIs for seeking.
   if (CMU.getAdapter()?.service === 'youtube') {
