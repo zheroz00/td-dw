@@ -1,5 +1,6 @@
 import { getConfig } from './config.js';
 import { pickProvider } from './providers/index.js';
+import { buildQuestionMessages } from './providers/prompts.js';
 import { chatCompletion } from './llm-client.js';
 
 // --- Jellyfin: dynamic content-script registration -------------------------
@@ -130,6 +131,24 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       const config = await getConfig();
       const provider = pickProvider(msg.videoState, config);
       sendResponse(await provider.getRecap(msg.videoState, config));
+    })().catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true; // async sendResponse
+  }
+
+  if (msg?.type === 'ASK_QUESTION') {
+    // Follow-up Q&A about the current title. No caller endpoint override (unlike
+    // TEST_LLM), so the extension-id guard above is sufficient.
+    (async () => {
+      const config = await getConfig();
+      const messages = buildQuestionMessages(
+        msg.videoState,
+        config,
+        msg.recapText,
+        msg.history || [],
+        msg.question
+      );
+      const answer = await chatCompletion(config, messages);
+      sendResponse({ ok: true, answer });
     })().catch((err) => sendResponse({ ok: false, error: err.message }));
     return true; // async sendResponse
   }

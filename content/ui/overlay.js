@@ -6,7 +6,8 @@ globalThis.TDDW = globalThis.TDDW || { adapters: [] };
 globalThis.TDDW.overlay = (() => {
   let host = null;
   let els = null;
-  const handlers = { onRefresh: null, onSeek: null };
+  let asking = false; // one follow-up in flight at a time
+  const handlers = { onRefresh: null, onSeek: null, onAsk: null };
 
   function ensure() {
     if (host && host.isConnected) return;
@@ -31,6 +32,11 @@ globalThis.TDDW.overlay = (() => {
       </div>
       <div class="cmu-progress"><div class="cmu-progress-fill"></div></div>
       <div class="cmu-body"></div>
+      <form class="cmu-ask" hidden>
+        <input class="cmu-ask-input" type="text" autocomplete="off" spellcheck="false"
+               placeholder="Ask a follow-up…" aria-label="Ask a follow-up question" />
+        <button class="cmu-ask-send" type="submit" title="Ask">&#10148;</button>
+      </form>
       <div class="cmu-footer">
         <button class="cmu-btn cmu-secondary cmu-refresh">Refresh at current time</button>
         <button class="cmu-btn cmu-dismiss">Close</button>
@@ -45,11 +51,29 @@ globalThis.TDDW.overlay = (() => {
       subtitle: panel.querySelector('.cmu-subtitle'),
       chip: panel.querySelector('.cmu-chip'),
       progress: panel.querySelector('.cmu-progress-fill'),
-      body: panel.querySelector('.cmu-body')
+      body: panel.querySelector('.cmu-body'),
+      askForm: panel.querySelector('.cmu-ask'),
+      askInput: panel.querySelector('.cmu-ask-input'),
+      askSend: panel.querySelector('.cmu-ask-send'),
+      qa: null // the Q&A thread container, (re)created per recap in showRecap
     };
     panel.querySelector('.cmu-close').addEventListener('click', hide);
     panel.querySelector('.cmu-dismiss').addEventListener('click', hide);
     panel.querySelector('.cmu-refresh').addEventListener('click', () => handlers.onRefresh?.());
+    els.askForm.addEventListener('submit', (e) => {
+      e.preventDefault();
+      submitQuestion();
+    });
+    // Keep keystrokes inside the follow-up box. The panel is in a closed shadow
+    // root, so the host page (YouTube/Netflix/…) can't see that a text field is
+    // focused — its own shortcuts (space / "k" = play-pause, arrows = seek) would
+    // otherwise fire on every character typed, resuming the video and stealing
+    // focus. Stop these events from bubbling out to the page's document/window
+    // handlers. Escape still closes the panel: that handler runs in the capture
+    // phase, which fires before this bubble-phase listener.
+    ['keydown', 'keyup', 'keypress'].forEach((type) => {
+      els.askInput.addEventListener(type, (e) => e.stopPropagation());
+    });
     document.addEventListener(
       'keydown',
       (e) => {
@@ -80,6 +104,9 @@ globalThis.TDDW.overlay = (() => {
 
   function setContext(videoState) {
     ensure();
+    // Hide the follow-up row by default; only showRecap re-enables it. This
+    // keeps it off during loading / error / unknown-title / <1-min states.
+    els.askForm.hidden = true;
     els.panel.dataset.service = videoState?.service || '';
     // YouTube gets the full-height column (covers the suggested-videos rail);
     // streaming services keep the compact card.
@@ -116,6 +143,13 @@ globalThis.TDDW.overlay = (() => {
 
   function hide() {
     if (host) host.style.display = 'none';
+    // Reset the follow-up input; the Q&A thread lives in .cmu-body and is wiped
+    // whenever the body is rebuilt (next showLoading/showRecap), so closing then
+    // reopening starts a fresh conversation.
+    if (els) {
+      els.askForm.hidden = true;
+      els.askInput.value = '';
+    }
   }
 
   function isVisible() {
@@ -222,7 +256,78 @@ globalThis.TDDW.overlay = (() => {
     ul.className = 'cmu-list';
     lines.forEach((line, i) => ul.appendChild(renderItem(line, i)));
     els.body.appendChild(ul);
+    // Fresh Q&A thread for this recap; follow-ups append here so they scroll
+    // with the summary.
+    els.qa = document.createElement('div');
+    els.qa.className = 'cmu-qa';
+    els.body.appendChild(els.qa);
+    enableAsk();
     show();
+  }
+
+  function enableAsk() {
+    // Only offer follow-ups when there's a real recap to ask about. Also clears
+    // any left-over disabled state from a question that was still in flight when
+    // this (fresh) recap replaced the previous one.
+    setAsking(false);
+    els.askForm.hidden = !handlers.onAsk;
+  }
+
+  // One follow-up round trip: append the question, show a pending answer, await
+  // the handler, then fill it in. Model text is rendered via appendRich /
+  // textContent — never innerHTML.
+  async function submitQuestion() {
+    if (asking || !handlers.onAsk || !els.qa) return;
+    const question = els.askInput.value.trim();
+    if (!question) return;
+
+    els.askInput.value = '';
+    setAsking(true);
+
+    const turn = document.createElement('div');
+    turn.className = 'cmu-turn';
+    const q = document.createElement('div');
+    q.className = 'cmu-q';
+    q.textContent = question;
+    const a = document.createElement('div');
+    a.className = 'cmu-a cmu-a-pending';
+    a.textContent = '…';
+    turn.append(q, a);
+    els.qa.appendChild(turn);
+    els.body.scrollTop = els.body.scrollHeight;
+
+    let stale = false;
+    try {
+      const answer = await handlers.onAsk(question);
+      a.classList.remove('cmu-a-pending');
+      a.textContent = '';
+      appendRich(a, answer || '');
+    } catch (err) {
+      // The recap was refreshed while this was in flight: its bubble is detached
+      // and a fresh panel (with its own reset state) is already up. Leave it be.
+      if (err?.stale) {
+        stale = true;
+        return;
+      }
+      a.classList.remove('cmu-a-pending');
+      a.classList.add('cmu-a-error');
+      a.textContent = err?.message || 'Something went wrong — try again.';
+      // Put the question back so the user can retry without retyping it.
+      if (!els.askInput.value) els.askInput.value = question;
+    } finally {
+      // A superseded question must not touch the new panel's input/scroll.
+      if (!stale) {
+        setAsking(false);
+        els.body.scrollTop = els.body.scrollHeight;
+        els.askInput.focus();
+      }
+    }
+  }
+
+  function setAsking(state) {
+    asking = state;
+    els.askInput.disabled = state;
+    els.askSend.disabled = state;
   }
 
   function showUnknown(message, videoState) {
