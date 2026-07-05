@@ -231,6 +231,89 @@ globalThis.TDDW.overlayCss = `
     color: #9aa0a6;
   }
 
+  /* Follow-up Q&A thread (lives inside .cmu-body, scrolls with the recap) */
+  .cmu-qa {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    margin-top: 14px;
+  }
+  .cmu-qa:empty { display: none; }
+  .cmu-qa .cmu-turn { display: flex; flex-direction: column; gap: 6px; }
+  .cmu-qa .cmu-turn::before {
+    content: "";
+    height: 1px;
+    background: rgba(255, 255, 255, 0.07);
+    margin-bottom: 4px;
+  }
+  .cmu-q {
+    align-self: flex-end;
+    max-width: 88%;
+    background: var(--accent-soft);
+    color: #e8eaed;
+    border-radius: 12px 12px 4px 12px;
+    padding: 7px 11px;
+    font-size: 13px;
+  }
+  .cmu-a {
+    align-self: flex-start;
+    max-width: 92%;
+    color: #cdd0d4;
+    padding: 2px 2px;
+    white-space: pre-wrap;
+    animation: cmu-item-in 0.3s ease both;
+  }
+  .cmu-a strong { color: #fff; font-weight: 650; }
+  .cmu-a-pending {
+    color: transparent;
+    width: 42px;
+    border-radius: 6px;
+    background: linear-gradient(90deg, rgba(255,255,255,0.06) 25%, rgba(255,255,255,0.13) 50%, rgba(255,255,255,0.06) 75%);
+    background-size: 200% 100%;
+    animation: cmu-shimmer 1.3s linear infinite;
+  }
+  .cmu-a-error { color: #f28b82; }
+
+  .cmu-ask {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 16px;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+  }
+  .cmu-ask-input {
+    flex: 1;
+    min-width: 0;
+    background: rgba(255, 255, 255, 0.05);
+    color: #e8eaed;
+    border: 1px solid rgba(255, 255, 255, 0.12);
+    border-radius: 9px;
+    padding: 8px 12px;
+    font: inherit;
+    font-size: 13px;
+    outline: none;
+  }
+  .cmu-ask-input::placeholder { color: #7c828b; }
+  .cmu-ask-input:focus {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-soft);
+  }
+  .cmu-ask-input:disabled { opacity: 0.6; }
+  .cmu-ask-send {
+    flex: none;
+    background: var(--accent-soft);
+    color: var(--accent);
+    border: 1px solid transparent;
+    border-radius: 9px;
+    padding: 8px 12px;
+    font-size: 14px;
+    line-height: 1;
+    cursor: pointer;
+    font-family: inherit;
+  }
+  .cmu-ask-send:hover { filter: brightness(1.3); }
+  .cmu-ask-send:disabled { opacity: 0.5; cursor: default; filter: none; }
+
   .cmu-footer {
     display: flex;
     gap: 8px;

@@ -8,7 +8,8 @@ export const DEFAULTS = {
   summaryLength: 'medium', // short | medium | detailed
   pauseOnOpen: true,
   recapProvider: 'auto', // auto = transcript when the adapter supplies one, else knowledge
-  jellyfinUrl: '' // e.g. http://jellyfin.local:8096 — empty disables the Jellyfin adapter
+  jellyfinUrl: '', // e.g. http://jellyfin.local:8096 — empty disables the Jellyfin adapter
+  spoilerFreeAnswers: true // follow-up Q&A only; true = keep answers behind the timestamp. The recap is always spoiler-free.
 };
 
 const STORAGE_KEY = 'catchMeUpConfig';
