@@ -82,10 +82,11 @@ export function buildTranscriptMessages(videoState, config) {
 }
 
 // Follow-up Q&A: the user asks free-form questions about the title after the
-// recap is shown. Unlike the recap (always spoiler-free — that's the product),
-// answers default to COMPLETE — the user opted into the whole picture. Flip
-// config.spoilerFreeAnswers to keep answers bounded to before `now`.
-// `history` is the prior [{ question, answer }] turns of THIS panel session.
+// recap is shown. Like the recap, answers stay spoiler-free by default
+// (config.spoilerFreeAnswers, on by default) — bounded to events before `now`.
+// Turning it off lets answers draw on the whole plot for people who want the
+// full picture. `history` is the prior [{ question, answer }] turns of THIS
+// panel session.
 export function buildQuestionMessages(videoState, config, recapText, history, question) {
   const { service, title, episodeInfo, currentTimeSeconds, durationSeconds, transcript } = videoState;
   const now = formatTime(currentTimeSeconds);
@@ -124,7 +125,10 @@ export function buildQuestionMessages(videoState, config, recapText, history, qu
     contextBlock += `\n\nCaption transcript up to ${now} (use for specifics about what's been shown):\n\n${transcript.text}`;
   }
 
-  const priorTurns = (history || []).flatMap((turn) => [
+  // Keep a sliding window of the most recent turns. The recap + transcript
+  // already dominate the token budget; unbounded history would only add latency
+  // and risk overflowing smaller/local context windows.
+  const priorTurns = (history || []).slice(-10).flatMap((turn) => [
     { role: 'user', content: turn.question },
     { role: 'assistant', content: turn.answer }
   ]);

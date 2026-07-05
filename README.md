@@ -14,6 +14,14 @@ twenty-minute Wikipedia hole and forgetting what I was watching. Now I hit a sho
 with it. Full disclosure: it's a joint project with Claude (Anthropic's AI), and I'm happy to say
 that out loud.
 
+<div align="center">
+  <img src="docs/screenshot-recap.jpg" alt="TD;DW recap panel over a paused film, with a follow-up question box" width="800">
+  <br><br>
+  <img src="docs/screenshot-followup.jpg" alt="Asking a follow-up question and getting an answer inside the panel" width="800">
+  <p><em>Left to its own: a spoiler-free recap up to where you paused. Ask a follow-up and it
+  answers right in the panel.</em></p>
+</div>
+
 ## Before you start (read this first)
 
 - **You need an LLM endpoint.** Pick a provider in the extension options:
@@ -50,9 +58,9 @@ that out loud.
   moment.
 - **Got a question about the recap?** Type it into the follow-up box at the bottom of the panel
   and ask away. It remembers the back-and-forth while the panel is open and forgets it the moment
-  you close it, so nothing is saved. By default, answers can fill in the whole picture (even past
-  where you are); flip on **"Keep follow-up answers spoiler-free"** in options if you'd rather they
-  stay behind your timestamp too. The recap bullets themselves are always spoiler-free either way.
+  you close it, so nothing is saved. Answers stay spoiler-free by default, same as the recap; if
+  you'd rather they fill in the whole picture (even past where you are), turn off **"Keep follow-up
+  answers spoiler-free"** in options.
 - Keep watching, then hit **Refresh at current time** to extend the recap.
 
 ### Jellyfin
