@@ -39,16 +39,79 @@ that out loud.
   be imperfect"** (recalled from training, so treat it as a refresher). It's an honest signal, not
   a made-up confidence score.
 - **The keyboard shortcut can silently collide** with an existing binding, so check or change it
-  at `chrome://extensions/shortcuts`.
+  at `chrome://extensions/shortcuts` (Firefox: `about:addons` → gear → Manage Extension Shortcuts).
 - **Disney+ (ad tier):** playback position is read from the player's own scrub bar, because the
   raw video stream has stitched-in ads. If you get "couldn't read the playback position," wave your
   mouse over the player so the controls appear, then hit "Refresh at current time".
 
 ## Install
 
-1. `chrome://extensions` → enable **Developer mode** → **Load unpacked** → pick this folder.
+Start with `scripts/build.sh` (needs Node). It writes both browser builds:
+
+    scripts/build.sh
+
+Same code either way, only the manifest differs. There are four `manifest.json` files in this
+repo and picking the wrong one is the classic mistake, so, plainly:
+
+| File | What it is |
+| --- | --- |
+| `manifest.json` (repo root) | Chrome **source** manifest. Do not load this folder. |
+| `firefox/manifest.json` | Firefox **source** manifest. Do not load this folder either. |
+| `dist/chrome/` | **Load this in Chrome, Edge, Brave.** |
+| `dist/firefox/` | **This is the Firefox one.** Loaded temporarily, or signed into an `.xpi`. |
+
+Neither browser refuses the other's build. Chrome loads `dist/firefox/` and silently runs with no
+background at all; Firefox loads the Chrome manifest and complains that
+`background.service_worker` is disabled. If the extension looks broken the moment you install it,
+check this first.
+
+**Chrome / Edge / Brave**
+
+1. `chrome://extensions` → enable **Developer mode** → **Load unpacked** → pick **`dist/chrome/`**.
 2. Open the extension's **Details → Extension options**, choose your provider, paste your API
    key (or local endpoint URL), **Test connection**, **Save**.
+
+Re-run `scripts/build.sh` after editing source, then hit reload on the extension card.
+
+**Firefox 140+, permanent install (recommended)**
+
+Release and Beta Firefox only install add-ons that Mozilla has signed, and a temporary add-on
+disappears the moment you close the browser, taking your saved API key with it. To get one that
+sticks, sign it once through your own AMO account on the **unlisted** (self-distribution) channel.
+Unlisted means Mozilla runs automated review, signs the file, and hands it back to you: nothing is
+published, nothing is searchable, nobody else can install it from addons.mozilla.org.
+
+1. Create AMO API credentials at <https://addons.mozilla.org/developers/addon/api/key/> (the
+   account needs two-factor auth), and save them outside the repo:
+
+       mkdir -p ~/.config/td-dw
+       cat > ~/.config/td-dw/amo.env <<'KEYS'
+       export WEB_EXT_API_KEY="user:12345678:123"
+       export WEB_EXT_API_SECRET="the long secret, shown only once"
+       KEYS
+       chmod 600 ~/.config/td-dw/amo.env
+
+   Both values are required: the **JWT issuer** (`user:...:...`) and the **JWT secret**. Check the
+   file with `scripts/check-amo-creds.sh`, which validates the shape without printing the values.
+
+2. Run `scripts/sign-firefox.sh`. It builds, lints, uploads, waits for Mozilla's automated
+   signing, and writes the signed file to **`dist/signed/`**.
+3. Copy that one `.xpi` to whichever machine you want it on. In Firefox: `about:addons` → gear
+   icon → **Install Add-on From File** → pick the `.xpi`. It survives restarts.
+4. `about:addons` → TD;DW → **Options** to set up your provider. Keyboard shortcuts live under
+   `about:addons` → gear icon → **Manage Extension Shortcuts**.
+
+AMO will not sign the same version number twice, so before each re-sign run
+`scripts/bump-version.sh patch`, which bumps both manifests together.
+
+**Firefox, temporary install (for a quick look)**
+
+1. `about:debugging` → **This Firefox** → **Load Temporary Add-on** → pick
+   **`dist/firefox/manifest.json`**.
+2. It is gone the next time Firefox starts. That is Firefox's rule for unsigned add-ons, not a bug
+   in TD;DW. For anything you want to keep, use the signed route above.
+
+More detail in [firefox/README.md](firefox/README.md).
 
 ## Use
 
@@ -86,6 +149,7 @@ on OpenRouter requests, which OpenRouter uses for app attribution; it says nothi
 - **`storage`**: saves your settings (provider, model, Jellyfin URL) in `chrome.storage.local`.
   Your API key lives here and never leaves except as the `Authorization` header to *your*
   endpoint.
+- **`contextMenus`**: adds a "TD;DW settings" item to the toolbar icon's right-click menu.
 - **`scripting`**: registers the Jellyfin adapter on your server's own origin at runtime (that
   address isn't known at build time, so it can't be a static entry).
 - **Default site access is deliberately minimal.** The extension only auto-runs on
@@ -146,14 +210,25 @@ on OpenRouter requests, which OpenRouter uses for app attribution; it says nothi
 - `background/providers/prompts.js`: all the spoiler-safety and identification rules. Iterate here;
   it is the product.
 - `background/llm-client.js`: a single OpenAI-compatible client (`{baseUrl, apiKey, model}`),
-  fetched straight from the MV3 service worker, and it strips `<think>` blocks from local reasoning
+  fetched straight from the MV3 background script, and it strips `<think>` blocks from local reasoning
   models. OpenRouter, Gemini, and local endpoints all speak this one protocol.
 
 ## Roadmap
 
 - Polish pass: shortcut-collision check, options UX, a "(partial)" note when a very long
   transcript gets sampled down.
-- Package for the Chrome Web Store.
+- Publish to the Chrome Web Store. The developer account exists and
+  `dist/td-dw-chrome.zip` is upload-ready; the listing itself (screenshots, privacy policy,
+  permission justifications) is drafted in [docs/store-listing-answers.md](docs/store-listing-answers.md)
+  but not submitted. Chrome has no equivalent of Firefox's unlisted self-distribution: it blocks
+  `.crx` installs from outside the store, so the store is the only realistic route.
+  (Firefox is done: `scripts/sign-firefox.sh` produces a Mozilla-signed `.xpi` through AMO's
+  unlisted channel, so it installs permanently.)
+- A public AMO listing for Firefox, which needs a privacy policy and reviewer notes explaining
+  how to test without an API key. See [firefox/README.md](firefox/README.md).
+- Self-hosted auto-updates for the signed Firefox build: an `updates.json` on GitHub Pages plus
+  `update_url` in the Firefox manifest, so a new version arrives on its own instead of being
+  hand-copied between machines.
 
 ## Credits
 
