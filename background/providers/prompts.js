@@ -5,6 +5,25 @@ const BULLET_COUNTS = { short: '3-5', medium: '5-8', detailed: '8-12' };
 
 export const NO_KNOWLEDGE_TOKEN = 'NO_KNOWLEDGE';
 
+// Matches the token at the start of the reply even when the model wraps it in
+// markdown ("- **NO_KNOWLEDGE**", "NO_KNOWLEDGE.") instead of emitting it bare,
+// which a plain startsWith() missed.
+const NO_KNOWLEDGE_RE = /^\W*NO_KNOWLEDGE\b/;
+
+export function isNoKnowledge(text) {
+  return NO_KNOWLEDGE_RE.test((text || '').trim());
+}
+
+// Strips the token and any leading punctuation/markdown/whitespace so the
+// remaining explanation sentence can be shown to the user on its own.
+export function stripNoKnowledge(text) {
+  return (text || '')
+    .trim()
+    .replace(NO_KNOWLEDGE_RE, '')
+    .replace(/^[\s*_.:,-]+/, '')
+    .trim();
+}
+
 export function formatTime(seconds) {
   if (!Number.isFinite(seconds)) return 'an unknown time';
   const s = Math.floor(seconds);
@@ -37,7 +56,8 @@ export function buildRecapMessages(videoState, config) {
     `(4b) Only if no work you know plausibly matches these clues${episodeInfo ? ' (including the episode)' : ''}, reply with the single token ${NO_KNOWLEDGE_TOKEN} on the first line, then one sentence saying you don't know it. Never guess or fabricate plot for an unrecognized work — but do not refuse merely because a title is ambiguous when the runtime settles it.`,
     `(5) Format: at most ${bullets} concise bullet points in plain text, one per line, each starting with "- ". If little has happened yet, use fewer bullets — even a single bullet is a complete answer.`,
     `(6) You may bold one or two key character or place names per bullet with **double asterisks**; use no other formatting. Never include timestamps — you do not know exact timings.`,
-    `(7) Output ONLY the bullet lines. No preamble, no closing remarks, no commentary about how much material is available, and no notes about your limitations.`
+    `(7) Output ONLY the bullet lines. No preamble, no closing remarks, no commentary about how much material is available, and no notes about your limitations.`,
+    `(8) Write in the language the title is presented in.`
   ].join(' ');
 
   const user = `Catch me up on "${title}"${episode} up to ${now}.`;
@@ -70,7 +90,8 @@ export function buildTranscriptMessages(videoState, config) {
     `(4) Format: at most ${bullets} concise bullet points in plain text, one per line, each starting with "- ". If little has happened yet, use fewer bullets — even a single bullet is a complete answer.`,
     `(5) Every transcript line begins with its [m:ss] timestamp. Start each bullet with the [m:ss] timestamp (copied from the transcript) of the moment that bullet covers, in chronological order.`,
     `(6) You may bold one or two key names or terms per bullet with **double asterisks**; use no other formatting.`,
-    `(7) Output ONLY the bullet lines. No preamble, no closing remarks, no commentary about how much or little transcript is available, and no notes about your limitations.`
+    `(7) Output ONLY the bullet lines. No preamble, no closing remarks, no commentary about how much or little transcript is available, and no notes about your limitations.`,
+    `(8) Write in the language of the transcript when one is provided, otherwise in the language of the title and the user's question.`
   ].filter(Boolean).join(' ');
 
   const user = `Transcript of "${title}"${episode} up to ${now}:\n\n${transcript.text}\n\nCatch me up.`;
@@ -115,7 +136,8 @@ export function buildQuestionMessages(videoState, config, recapText, history, qu
     `(a) Answer directly in 1-3 sentences of plain, conversational prose — no bullet points, no preamble, no closing remarks.`,
     `(b) When a transcript is provided below, prefer it for specifics about what has actually been shown on screen.`,
     `(c) You may bold one or two key names or terms with **double asterisks**; use no other formatting.`,
-    `(d) If you genuinely don't know, say so briefly rather than inventing an answer.`
+    `(d) If you genuinely don't know, say so briefly rather than inventing an answer.`,
+    `(e) Write in the language of the transcript when one is provided, otherwise in the language of the title and the user's question.`
   ];
 
   const system = [...common, ...spoilerFree, ...format].join(' ');

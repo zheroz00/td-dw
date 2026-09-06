@@ -33,7 +33,11 @@ that out loud.
   own memory* (Netflix/Disney, or a Jellyfin item with no subtitles), small models hand you vague,
   plot-shaped filler, so reach for a stronger model there. **Transcript mode** (YouTube captions,
   Jellyfin subtitles) feeds the model the real dialogue, so it stays accurate even on cheap, fast
-  models and even for brand-new or obscure content.
+  models and even for brand-new or obscure content. The default model is now
+  `google/gemini-3.8-flash` (or `gemini-3.8-flash` on the Gemini preset). Thinking effort is tuned
+  per task: low in transcript mode (summarizing captions gains nothing from extra thinking),
+  medium in knowledge mode (identifying the work and judging what's happened before your timestamp
+  benefits from it), and this is applied automatically on OpenRouter and Gemini, whichever you pick.
 - **Every recap tells you where it came from.** A badge at the top reads either **green, "Built
   from this title's subtitles"** (grounded, trustworthy) or **amber, "From the model's memory, may
   be imperfect"** (recalled from training, so treat it as a refresher). It's an honest signal, not
@@ -128,6 +132,9 @@ More detail in [firefox/README.md](firefox/README.md).
   you'd rather they fill in the whole picture (even past where you are), turn off **"Keep follow-up
   answers spoiler-free"** in options.
 - Keep watching, then hit **Refresh at current time** to extend the recap.
+- **Recap source** in options controls where the recap comes from: Auto (the default, subtitles
+  when the site adapter supplies them, otherwise the model's memory), or force one mode or the
+  other to compare the two on the same title.
 
 ### Jellyfin
 
@@ -214,7 +221,9 @@ on OpenRouter requests, which OpenRouter uses for app attribution; it says nothi
   it is the product.
 - `background/llm-client.js`: a single OpenAI-compatible client (`{baseUrl, apiKey, model}`),
   fetched straight from the MV3 background script, and it strips `<think>` blocks from local reasoning
-  models. OpenRouter, Gemini, and local endpoints all speak this one protocol.
+  models. OpenRouter, Gemini, and local endpoints all speak this one protocol. It also sends
+  provider-specific reasoning-effort settings (OpenRouter, Gemini) and falls back without them on a
+  400.
 
 ## Roadmap
 
@@ -231,6 +240,12 @@ on OpenRouter requests, which OpenRouter uses for app attribution; it says nothi
 - Self-hosted auto-updates for the signed Firefox build: an `updates.json` on GitHub Pages plus
   `update_url` in the Firefox manifest, so a new version arrives on its own instead of being
   hand-copied between machines.
+
+## Development
+
+`npm test` runs the parser and prompt tests (no browser needed). `scripts/build.sh` runs them
+again before assembling either browser build, so a broken test fails the build rather than
+shipping quietly.
 
 ## Credits
 

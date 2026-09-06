@@ -4,7 +4,10 @@
 export const DEFAULTS = {
   baseUrl: 'https://openrouter.ai/api/v1',
   apiKey: '',
-  model: 'openai/gpt-4o-mini',
+  // Verified live against OpenRouter's /models and Google's model docs on
+  // 2026-09-05: current stable Flash, 1M context. Existing users keep whatever
+  // model they already have stored — getConfig() merges stored over defaults.
+  model: 'google/gemini-3.8-flash',
   summaryLength: 'medium', // short | medium | detailed
   pauseOnOpen: true,
   recapProvider: 'auto', // auto = transcript when the adapter supplies one, else knowledge
@@ -30,4 +33,13 @@ export async function saveConfig(partial) {
   const next = { ...(await getConfig()), ...partial };
   await chrome.storage.local.set({ [STORAGE_KEY]: next });
   return next;
+}
+
+// Infers which provider preset a baseUrl matches, for the options UI dropdown
+// and for llm-client.js's reasoning-effort field selection. baseUrl remains
+// the single source of truth; this is only ever derived from it.
+export function providerFromUrl(url = '') {
+  if (url.includes('openrouter.ai')) return 'openrouter';
+  if (url.includes('generativelanguage.googleapis.com')) return 'gemini';
+  return 'custom';
 }
