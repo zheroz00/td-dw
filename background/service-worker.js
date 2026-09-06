@@ -15,6 +15,7 @@ const JELLYFIN_MAIN_ID = 'jellyfin-main';
 // Mirror of manifest content_scripts[0].js, with the two Jellyfin files slotted
 // in before index.js (which queries the populated adapter registry).
 const JELLYFIN_ISOLATED_JS = [
+  'content/adapters/transcript-cap.js',
   'content/adapters/youtube-transcript.js',
   'content/adapters/youtube.js',
   'content/adapters/dom-video-adapter.js',

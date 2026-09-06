@@ -226,7 +226,7 @@ globalThis.TDDW.overlay = (() => {
     knowledge: { cls: 'cmu-src-memory', icon: '🧠', label: 'From the model’s memory — may be imperfect' }
   };
 
-  function renderSourceBadge(source) {
+  function renderSourceBadge(source, videoState) {
     const meta = SOURCE_BADGES[source];
     if (!meta) return null;
     const badge = document.createElement('div');
@@ -235,7 +235,12 @@ globalThis.TDDW.overlay = (() => {
     icon.className = 'cmu-source-icon';
     icon.textContent = meta.icon;
     const label = document.createElement('span');
-    label.textContent = meta.label;
+    // A transcript that had to be sampled down to fit the budget is still
+    // grounded, just incomplete: say so rather than implying full coverage.
+    label.textContent =
+      source === 'transcript' && videoState?.transcript?.truncated
+        ? `${meta.label} (sampled to fit)`
+        : meta.label;
     badge.append(icon, label);
     return badge;
   }
@@ -250,7 +255,7 @@ globalThis.TDDW.overlay = (() => {
       .map((l) => l.replace(/^\s*(?:[-•]|\*(?!\*)|\d+[.)])\s*/, '').trim())
       .filter(Boolean);
     els.body.innerHTML = '';
-    const badge = renderSourceBadge(source);
+    const badge = renderSourceBadge(source, videoState);
     if (badge) els.body.appendChild(badge);
     const ul = document.createElement('ul');
     ul.className = 'cmu-list';

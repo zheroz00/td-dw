@@ -37,6 +37,14 @@
       <option value="detailed">Detailed (8–12 bullets)</option>
     </select>
 
+    <label for="transcriptBudget">Transcript size</label>
+    <select id="transcriptBudget">
+      <option value="standard">Standard (cloud models, fits a 3-hour title)</option>
+      <option value="local">Local / small-context models</option>
+    </select>
+    <p class="hint">How much subtitle text to send. Pick Local if your model has a context window
+      under about 32k tokens.</p>
+
     <label for="jellyfinUrl">Jellyfin server URL <span class="optional">(optional)</span></label>
     <input id="jellyfinUrl" type="url" placeholder="http://jellyfin.local:8096">
     <p class="hint">Enables recaps on your Jellyfin web player, built from the actual subtitle
