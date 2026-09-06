@@ -223,8 +223,31 @@ globalThis.TDDW.overlay = (() => {
   // the honest trust signal — a model's self-rated "confidence" is not.
   const SOURCE_BADGES = {
     transcript: { cls: 'cmu-src-grounded', icon: '✓', label: 'Built from this title’s subtitles' },
-    knowledge: { cls: 'cmu-src-memory', icon: '🧠', label: 'From the model’s memory — may be imperfect' }
+    // Hybrid: memory recap anchored by the captions seen on screen since the
+    // tab loaded. The label carries the coverage start so the reader knows
+    // which part is grounded.
+    hybrid: { cls: 'cmu-src-hybrid', icon: '🧠✓', label: 'From memory, anchored by subtitles' },
+    knowledge: { cls: 'cmu-src-memory', icon: '🧠', label: 'From the model’s memory, may be imperfect' }
   };
+
+  function badgeLabel(source, videoState) {
+    const base = SOURCE_BADGES[source].label;
+    const transcript = videoState?.transcript;
+    if (source === 'transcript') {
+      // A transcript that had to be sampled down to fit the budget is still
+      // grounded, just incomplete: say so rather than implying full coverage.
+      return transcript?.truncated ? `${base} (sampled to fit)` : base;
+    }
+    if (source === 'hybrid') {
+      const from = Number.isFinite(transcript?.coverageStartSeconds)
+        ? ` from ${formatTime(transcript.coverageStartSeconds)} on`
+        : '';
+      return `${base}${from}`;
+    }
+    // Memory-only on a site where live captions could have grounded it: the
+    // fix is in the viewer's hands, so say so.
+    return videoState?.captionCapable ? `${base}. Turn on subtitles and TD;DW can anchor the recap.` : base;
+  }
 
   function renderSourceBadge(source, videoState) {
     const meta = SOURCE_BADGES[source];
@@ -235,12 +258,7 @@ globalThis.TDDW.overlay = (() => {
     icon.className = 'cmu-source-icon';
     icon.textContent = meta.icon;
     const label = document.createElement('span');
-    // A transcript that had to be sampled down to fit the budget is still
-    // grounded, just incomplete: say so rather than implying full coverage.
-    label.textContent =
-      source === 'transcript' && videoState?.transcript?.truncated
-        ? `${meta.label} (sampled to fit)`
-        : meta.label;
+    label.textContent = badgeLabel(source, videoState);
     badge.append(icon, label);
     return badge;
   }
