@@ -3,7 +3,7 @@
   "name": "TD;DW",
   "version": "0.1.0",
   "description": "Too Distracted, Didn't Watch — spoiler-free recap of what you're watching, up to the current timestamp.",
-  "permissions": ["storage", "scripting"],
+  "permissions": ["storage", "scripting", "contextMenus"],
   "host_permissions": ["https://openrouter.ai/*"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],
   "background": {

@@ -59,32 +59,40 @@ $('provider').addEventListener('change', () => {
   $('model').value = preset.model;
 });
 
-// Non-OpenRouter endpoints need a host permission granted at save time.
+// Non-OpenRouter endpoints (and the Jellyfin server) need a host permission.
 // Match patterns can't carry a port, so a pattern like "http://myserver/*"
 // covers myserver on any port.
-async function ensureHostPermission(baseUrl) {
+function originPattern(rawUrl) {
   let url;
   try {
-    url = new URL(baseUrl);
+    url = new URL(rawUrl);
   } catch {
-    throw new Error('That base URL doesn’t parse as a URL.');
+    throw new Error(`"${rawUrl}" doesn’t parse as a URL.`);
   }
-  if (url.hostname === 'openrouter.ai') return; // granted at install
-  const pattern = `${url.protocol}//${url.hostname}/*`;
-  if (await chrome.permissions.contains({ origins: [pattern] })) return;
-  const granted = await chrome.permissions.request({ origins: [pattern] });
+  if (url.hostname === 'openrouter.ai') return null; // granted at install
+  return `${url.protocol}//${url.hostname}/*`;
+}
+
+// Must be the FIRST awaited call in a click handler: Firefox only allows
+// permissions.request() synchronously inside a user-input handler, so any
+// earlier await (even permissions.contains) ends the gesture and it throws.
+// Chrome is lenient, which is why this used to work there. request() resolves
+// true without prompting when the permission is already held, so no pre-check.
+async function ensureHostPermissions(...urls) {
+  const origins = urls.filter(Boolean).map(originPattern).filter(Boolean);
+  if (!origins.length) return;
+  const granted = await chrome.permissions.request({ origins });
   if (!granted) {
-    throw new Error(`Permission for ${pattern} was declined — the extension can’t reach that endpoint without it.`);
+    throw new Error(`Permission for ${origins.join(', ')} was declined — the extension can’t reach that endpoint without it.`);
   }
 }
 
 $('save').addEventListener('click', async () => {
   const values = readForm();
   try {
-    await ensureHostPermission(values.baseUrl);
-    // Jellyfin runs on the user's own server origin — needs its own host grant
-    // so the adapter can be injected there. Only when a URL is set.
-    if (values.jellyfinUrl) await ensureHostPermission(values.jellyfinUrl);
+    // One request covering the endpoint and (if set) the Jellyfin origin, so
+    // the adapter can be injected on the user's own server.
+    await ensureHostPermissions(values.baseUrl, values.jellyfinUrl);
     await saveConfig(values);
     // (Re)register or tear down the Jellyfin content scripts to match the URL.
     const sync = await chrome.runtime.sendMessage({ type: 'SYNC_JELLYFIN_SCRIPTS' });
@@ -99,7 +107,7 @@ $('test').addEventListener('click', async () => {
   const values = readForm();
   setStatus('Testing…');
   try {
-    await ensureHostPermission(values.baseUrl);
+    await ensureHostPermissions(values.baseUrl);
     const result = await chrome.runtime.sendMessage({ type: 'TEST_LLM', configOverride: values });
     if (result?.ok) {
       setStatus('Connection works — model responded.', 'ok');
