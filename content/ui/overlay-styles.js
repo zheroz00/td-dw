@@ -198,6 +198,12 @@ globalThis.TDDW.overlayCss = `
     background: rgba(253, 214, 99, 0.11);
     border-color: rgba(253, 214, 99, 0.30);
   }
+  /* Hybrid sits between the two: memory recap, partly grounded */
+  .cmu-src-hybrid {
+    color: #c5d98b;
+    background: rgba(197, 217, 139, 0.11);
+    border-color: rgba(197, 217, 139, 0.30);
+  }
 
   .cmu-muted { color: #9aa0a6; }
   .cmu-error { color: #f28b82; }

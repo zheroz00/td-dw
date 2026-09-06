@@ -19,6 +19,7 @@ const JELLYFIN_ISOLATED_JS = [
   'content/adapters/youtube-transcript.js',
   'content/adapters/youtube.js',
   'content/adapters/dom-video-adapter.js',
+  'content/adapters/caption-capture.js',
   'content/adapters/netflix.js',
   'content/adapters/primevideo.js',
   'content/adapters/disneyplus.js',

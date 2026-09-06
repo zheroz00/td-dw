@@ -38,10 +38,17 @@ that out loud.
   per task: low in transcript mode (summarizing captions gains nothing from extra thinking),
   medium in knowledge mode (identifying the work and judging what's happened before your timestamp
   benefits from it), and this is applied automatically on OpenRouter and Gemini, whichever you pick.
-- **Every recap tells you where it came from.** A badge at the top reads either **green, "Built
-  from this title's subtitles"** (grounded, trustworthy) or **amber, "From the model's memory, may
-  be imperfect"** (recalled from training, so treat it as a refresher). It's an honest signal, not
-  a made-up confidence score. A very long transcript gets sampled down to fit the configured
+- **Every recap tells you where it came from.** A badge at the top reads **green, "Built from
+  this title's subtitles"** (grounded, trustworthy), **amber, "From the model's memory, may be
+  imperfect"** (recalled from training, so treat it as a refresher), or the in-between **"From
+  memory, anchored by subtitles from 12:30 on"** (see the next bullet). It's an honest signal, not
+  a made-up confidence score.
+- **Turn subtitles on for Netflix, Prime Video and Disney+.** Those players never hand over a
+  subtitle file, but they do paint each line on screen, and TD;DW quietly collects the lines it
+  sees from the moment the tab loads. It can't recap from those alone (it only has what you've
+  watched in this tab), so it uses them to pin down exactly where you are in the story, which is
+  the thing memory-only recaps get wrong, and grounds the most recent bullets in real dialogue.
+  Subtitles off means memory only, and the badge says so. A very long transcript gets sampled down to fit the configured
   budget rather than sent whole, and when that happens the badge adds "(sampled to fit)" so you
   know the recap is grounded but not complete. Tune how much subtitle text gets sent with the
   **Transcript size** option (Standard for cloud models, Local for small-context local ones).
@@ -148,7 +155,8 @@ mode automatically.
 ## Permissions & privacy
 
 **What it sends, and where.** TD;DW has no backend, no analytics, no telemetry. The only things
-that leave your machine are the recap request (the title, plus in transcript mode the subtitles
+that leave your machine are the recap request (the title, plus in transcript mode the subtitles,
+or on Netflix/Prime/Disney+ the subtitle lines this tab has shown on screen,
 up to your current timestamp) and any follow-up questions you type along with the recap they're
 about. All of it goes **only to the LLM endpoint you configure, with your own API key**. Nothing
 is logged, and nothing phones home. (The one extra outbound header is an `HTTP-Referer`/`X-Title`
@@ -194,7 +202,11 @@ on OpenRouter requests, which OpenRouter uses for app attribution; it says nothi
   `getTranscriptUpTo` exists is what routes a site into transcript mode. `index.js` is a
   first-match registry over `matches()`.
   - **Netflix/Prime/Disney** share the `dom-video-adapter.js` factory, so a new streaming site is
-    about 30 lines of config. Site DOM fragility stays in each site's `readTitle` / `readPlayerTime`.
+    about 30 lines of config. Site DOM fragility stays in each site's `readTitle` / `readPlayerTime`
+    / `captionSelectors`. `caption-capture.js` watches the site's on-screen caption container with
+    a MutationObserver from page load and turns the cues seen into a *partial* transcript
+    (`partial: true`, plus `coverageStartSeconds`). Cue times are stored as stream time and
+    converted at read time, so the Disney+ ad tier's inflated clock still filters correctly.
   - **YouTube** fetches captions via the InnerTube ANDROID-client route (web `timedtext` is
     proof-of-origin-gated and returns empty bodies). Lines carry `[m:ss]` prefixes that become
     seekable chips.
@@ -213,7 +225,8 @@ on OpenRouter requests, which OpenRouter uses for app attribution; it says nothi
   the player UI's Timeline slider via `TDDW.queryDeepAll()`, which pierces open shadow DOM and
   same-origin iframes.
 - `background/providers/`: recap engines behind `pickProvider()`. It picks **transcript** when the
-  adapter supplied captions/subtitles and **knowledge** otherwise. Each result carries a `source`
+  adapter supplied a full caption/subtitle track, **hybrid** when it supplied a partial one captured
+  live off a DRM player, and **knowledge** otherwise. Each result carries a `source`
   field the overlay renders as the provenance badge. Follow-up questions run through
   `buildQuestionMessages` in the same folder, reusing the recap (and transcript, when present) as
   context. Adding an engine is one file plus one registry line.

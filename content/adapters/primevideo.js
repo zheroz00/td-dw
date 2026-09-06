@@ -17,7 +17,10 @@ globalThis.TDDW = globalThis.TDDW || { adapters: [] };
       displayName: 'Prime Video',
       hostSuffix: 'primevideo.com',
       readTitle,
-      nudgeSelector: '.webPlayerUIContainer'
+      nudgeSelector: '.webPlayerUIContainer',
+      // On-screen caption container (only present while subtitles are on).
+      // Outer overlay first: it outlives the per-cue text nodes.
+      captionSelectors: ['.atvwebplayersdk-captions-overlay', '.atvwebplayersdk-captions-text']
     })
   );
 })();
