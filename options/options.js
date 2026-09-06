@@ -1,6 +1,6 @@
 // Options page is an extension page, so it can use ES modules and share
 // config.js with the service worker.
-import { getConfig, saveConfig } from '../background/config.js';
+import { getConfig, saveConfig, providerFromUrl } from '../background/config.js';
 
 const $ = (id) => document.getElementById(id);
 const status = $('status');
@@ -8,16 +8,12 @@ const status = $('status');
 // Provider presets fill in the OpenAI-compatible endpoint (and a sensible
 // default model) so users don't have to memorize base URLs. baseUrl remains the
 // single source of truth — the dropdown is inferred from it on load.
+// Verified live on 2026-09-05 (OpenRouter /models and Google's model docs):
+// current stable Flash, 1M context.
 const PRESETS = {
-  openrouter: { url: 'https://openrouter.ai/api/v1', model: 'openai/gpt-4o-mini' },
-  gemini: { url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-2.5-flash' }
+  openrouter: { url: 'https://openrouter.ai/api/v1', model: 'google/gemini-3.8-flash' },
+  gemini: { url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-3.8-flash' }
 };
-
-function providerFromUrl(url = '') {
-  if (url.includes('openrouter.ai')) return 'openrouter';
-  if (url.includes('generativelanguage.googleapis.com')) return 'gemini';
-  return 'custom';
-}
 
 function setStatus(text, kind = '') {
   status.textContent = text;
@@ -30,6 +26,7 @@ function readForm() {
     apiKey: $('apiKey').value.trim(),
     model: $('model').value.trim(),
     summaryLength: $('summaryLength').value,
+    recapProvider: $('recapProvider').value,
     transcriptBudget: $('transcriptBudget').value,
     pauseOnOpen: $('pauseOnOpen').checked,
     spoilerFreeAnswers: $('spoilerFreeAnswers').checked,
@@ -43,6 +40,7 @@ async function load() {
   $('apiKey').value = config.apiKey;
   $('model').value = config.model;
   $('summaryLength').value = config.summaryLength;
+  $('recapProvider').value = config.recapProvider;
   $('transcriptBudget').value = config.transcriptBudget;
   $('pauseOnOpen').checked = config.pauseOnOpen;
   $('spoilerFreeAnswers').checked = config.spoilerFreeAnswers;

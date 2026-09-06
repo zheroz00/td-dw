@@ -168,7 +168,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         msg.history || [],
         msg.question
       );
-      const answer = await chatCompletion(config, messages);
+      const answer = await chatCompletion(config, messages, { effort: 'medium' });
       sendResponse({ ok: true, answer });
     })().catch((err) => sendResponse({ ok: false, error: err.message }));
     return true; // async sendResponse
@@ -191,7 +191,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // producing even a two-letter reply; 5 tokens made the test lie.
       await chatCompletion(config, [{ role: 'user', content: 'Reply with OK.' }], {
         maxTokens: 500,
-        temperature: 0
+        temperature: 0,
+        effort: 'low'
       });
       sendResponse({ ok: true });
     })().catch((err) => sendResponse({ ok: false, error: err.message }));

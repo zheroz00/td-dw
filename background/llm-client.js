@@ -1,10 +1,26 @@
+import { providerFromUrl } from './config.js';
+
 // One client for every backend: OpenRouter and any OpenAI-compatible
 // endpoint (Ollama, llama.cpp, LM Studio, ...) all speak POST {baseUrl}/chat/completions.
+
+// Verified against the provider docs on 2026-09-05: Gemini's OpenAI-compatible
+// endpoint takes a top-level `reasoning_effort` (minimal/low/medium/high; thinking
+// cannot be turned off on 3.x Flash, only lowered). OpenRouter needs the nested
+// `reasoning: { effort }` object and ignores a top-level `reasoning_effort`.
+// Custom/local OpenAI-compatible servers may reject unknown fields entirely, so
+// they get nothing, same as when no effort was requested at all.
+export function reasoningFields(baseUrl, effort) {
+  if (!effort) return {};
+  const provider = providerFromUrl(baseUrl);
+  if (provider === 'openrouter') return { reasoning: { effort } };
+  if (provider === 'gemini') return { reasoning_effort: effort };
+  return {};
+}
 
 // maxTokens must leave room for hidden reasoning: thinking models (Gemini 3.x,
 // DeepSeek, Claude w/ extended thinking) bill chain-of-thought against
 // max_tokens BEFORE any visible output. Too small = truncated or empty replies.
-export async function chatCompletion(config, messages, { maxTokens = 8192, temperature = 0.3 } = {}) {
+export async function chatCompletion(config, messages, { maxTokens = 8192, temperature = 0.3, effort } = {}) {
   const baseUrl = (config.baseUrl || '').trim().replace(/\/+$/, '');
   if (!baseUrl) {
     throw new Error('No API base URL configured. Open the extension options.');
@@ -38,20 +54,33 @@ export async function chatCompletion(config, messages, { maxTokens = 8192, tempe
     headers['X-Title'] = 'TD;DW';
   }
 
-  let res;
-  try {
-    res = await fetch(`${baseUrl}/chat/completions`, {
-      method: 'POST',
-      headers,
-      body: JSON.stringify({
-        model: config.model,
-        messages,
-        temperature,
-        max_tokens: maxTokens
-      })
-    });
-  } catch (err) {
-    throw new Error(`Could not reach ${baseUrl} — check the URL and that the endpoint is running. (${err.message})`);
+  const extraFields = reasoningFields(baseUrl, effort);
+
+  async function post(fields) {
+    try {
+      return await fetch(`${baseUrl}/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: config.model,
+          messages,
+          temperature,
+          max_tokens: maxTokens,
+          ...fields
+        })
+      });
+    } catch (err) {
+      throw new Error(`Could not reach ${baseUrl} — check the URL and that the endpoint is running. (${err.message})`);
+    }
+  }
+
+  let res = await post(extraFields);
+
+  // Some OpenRouter models reject the reasoning field outright with a 400.
+  // Retry once without it rather than failing the whole request.
+  if (!res.ok && res.status === 400 && Object.keys(extraFields).length) {
+    console.warn('[TD;DW] endpoint rejected reasoning settings, retrying without');
+    res = await post({});
   }
 
   if (!res.ok) {
