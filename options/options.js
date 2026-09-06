@@ -30,6 +30,7 @@ function readForm() {
     apiKey: $('apiKey').value.trim(),
     model: $('model').value.trim(),
     summaryLength: $('summaryLength').value,
+    transcriptBudget: $('transcriptBudget').value,
     pauseOnOpen: $('pauseOnOpen').checked,
     spoilerFreeAnswers: $('spoilerFreeAnswers').checked,
     jellyfinUrl: $('jellyfinUrl').value.trim().replace(/\/+$/, '')
@@ -42,6 +43,7 @@ async function load() {
   $('apiKey').value = config.apiKey;
   $('model').value = config.model;
   $('summaryLength').value = config.summaryLength;
+  $('transcriptBudget').value = config.transcriptBudget;
   $('pauseOnOpen').checked = config.pauseOnOpen;
   $('spoilerFreeAnswers').checked = config.spoilerFreeAnswers;
   $('jellyfinUrl').value = config.jellyfinUrl;
