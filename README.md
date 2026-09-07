@@ -241,6 +241,11 @@ on OpenRouter requests, which OpenRouter uses for app attribution; it says nothi
 ## Roadmap
 
 - Polish pass: shortcut-collision check, options UX.
+- Full subtitle-track extraction for Netflix, Prime Video and Disney+ (hooking each player's
+  manifest traffic for the whole file), only if the on-screen capture proves too partial in
+  practice. Deferred on purpose: three fragile per-site hooks.
+- Streaming responses, so bullets appear as they arrive instead of after a thinking model
+  finishes. Deferred behind the accuracy work.
 - Publish to the Chrome Web Store. The developer account exists and
   `dist/td-dw-chrome.zip` is upload-ready; the listing itself (screenshots, privacy policy,
   permission justifications) is drafted in [docs/store-listing-answers.md](docs/store-listing-answers.md)

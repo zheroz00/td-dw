@@ -52,6 +52,8 @@ What is sent, and to whom:
 
 - In transcript mode: the video's subtitles or captions plus its title go to the LLM
   endpoint the user configured (OpenRouter by default, or a local or custom endpoint).
+- In hybrid mode (Netflix, Prime Video, Disney+ with subtitles switched on): the subtitle
+  lines the player has shown on screen in that tab, plus the title.
 - In knowledge mode: only the title and the user's questions.
 - The user's API key is sent to that same endpoint to authenticate.
 
