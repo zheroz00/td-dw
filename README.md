@@ -152,6 +152,15 @@ reads your logged-in session token from the page (no separate API key), and pull
 movies included. Items with only image-based subs (PGS/VOBSUB) or no subs fall back to knowledge
 mode automatically.
 
+### On your TV (Jellyfin)
+
+A browser extension can't run on a TV, so there's a small self-hosted service for it. Press a
+button on your Android TV remote while Jellyfin is playing and a spoiler-free recap page opens
+on the TV, up to where you are. Open the same recap on your phone to ask follow-up questions.
+Setup, the remote button and the phone bookmark are in [tv/README.md](tv/README.md).
+
+> 📸 **Screenshot needed:** phone view with a follow-up answer -> docs/images/tv-phone.png
+
 ## Permissions & privacy
 
 **What it sends, and where.** TD;DW has no backend, no analytics, no telemetry. The only things
@@ -161,6 +170,10 @@ up to your current timestamp) and any follow-up questions you type along with th
 about. All of it goes **only to the LLM endpoint you configure, with your own API key**. Nothing
 is logged, and nothing phones home. (The one extra outbound header is an `HTTP-Referer`/`X-Title`
 on OpenRouter requests, which OpenRouter uses for app attribution; it says nothing about you.)
+
+The optional TV service (`tv/`) is a backend you run yourself: it sends the same thing (title,
+subtitles up to your position, follow-up questions) from your server to the LLM endpoint you
+configure, and nowhere else.
 
 **Why the permissions look the way they do:**
 
@@ -240,6 +253,8 @@ on OpenRouter requests, which OpenRouter uses for app attribution; it says nothi
 
 ## Roadmap
 
+- TV: a native Android TV panel with follow-up questions on the remote, and a short 'recap ready'
+  popup via Jellyfin's DisplayMessage.
 - Polish pass: shortcut-collision check, options UX.
 - Full subtitle-track extraction for Netflix, Prime Video and Disney+ (hooking each player's
   manifest traffic for the whole file), only if the on-screen capture proves too partial in
