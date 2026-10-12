@@ -114,4 +114,6 @@ globalThis.TDDW = globalThis.TDDW || { adapters: [] };
   // Shared so the page-captions fallback in youtube.js can prefix its lines with
   // the same [m:ss] timestamps the InnerTube path produces.
   globalThis.TDDW.formatTimestamp = formatTimestamp;
+  // Exposed for the test suite (test/youtube-transcript.test.js).
+  globalThis.TDDW.parseCaptionXml = parseCaptionXml;
 })();

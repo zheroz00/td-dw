@@ -31,8 +31,11 @@ globalThis.TDDW.makeDomVideoAdapter = function ({
   nudgeSelector,  // container to poke with a synthetic mousemove to wake controls
   readPlayerTime, // optional () => { current, duration } | null — read the player UI's
                   // own clock when video.currentTime can't be trusted
-  playerTimeOnly  // true: NEVER fall back to video.currentTime (ad-stitched streams
+  playerTimeOnly, // true: NEVER fall back to video.currentTime (ad-stitched streams
                   // report stream time incl. ads, not movie position)
+  captionSelectors // optional [selector]: the player's on-screen caption container.
+                   // When set, cues are captured live from page load and the
+                   // adapter gains getTranscriptUpTo (partial transcript, hybrid mode).
 }) {
   // Some players (Disney+'s Hive) keep the real <video> inside a same-origin
   // iframe while the top page holds a stub — search every reachable frame.
@@ -102,7 +105,15 @@ globalThis.TDDW.makeDomVideoAdapter = function ({
     }
   }
 
-  return {
+  // Capture starts at load (not at activation) so the buffer already holds
+  // whatever the viewer has watched by the time they ask for a recap. Only on
+  // the site this adapter is for: the same bundle runs on every supported host.
+  const capture =
+    captionSelectors?.length && location.hostname.endsWith(hostSuffix)
+      ? globalThis.TDDW.startCaptionCapture({ selectors: captionSelectors, findVideo })
+      : null;
+
+  const adapter = {
     service,
 
     matches(loc) {
@@ -143,8 +154,21 @@ globalThis.TDDW.makeDomVideoAdapter = function ({
         title: info?.title || null,
         episodeInfo: info?.episodeInfo || null,
         currentTimeSeconds,
-        durationSeconds: playerTime?.duration ?? videoDuration(video)
+        durationSeconds: playerTime?.duration ?? videoDuration(video),
+        // Lets the overlay suggest turning subtitles on when a memory-only
+        // recap lands on a site where captions could have grounded it.
+        captionCapable: !!capture
       };
     }
   };
+
+  if (capture) {
+    // Whatever cues were on screen up to `seconds`; null when none were seen
+    // (subtitles off, or the tab loaded mid-stream and nothing has played yet),
+    // which routes the recap to plain knowledge mode.
+    adapter.getTranscriptUpTo = async (seconds, maxChars) =>
+      capture.getTranscriptUpTo(seconds, globalThis.TDDW.activeVideo || findVideo(), maxChars);
+  }
+
+  return adapter;
 };

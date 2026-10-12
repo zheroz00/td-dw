@@ -33,6 +33,13 @@ secrets.json
 *.crx
 *.pem.pub
 
+# --- web-ext / AMO signing (defensive; the real outputs are already under dist/) ---
+# web-ext-config.* is the important one: that file is executable JS holding your
+# AMO API secret, and a stray `channel: "listed"` in one would publish the add-on.
+web-ext-artifacts/
+web-ext-config.*
+*.xpi
+
 # --- Node (in case build tooling is added later) ---
 node_modules/
 dist/

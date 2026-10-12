@@ -1,9 +1,9 @@
 {
   "manifest_version": 3,
   "name": "TD;DW",
-  "version": "0.1.0",
+  "version": "0.2.1",
   "description": "Too Distracted, Didn't Watch — spoiler-free recap of what you're watching, up to the current timestamp.",
-  "permissions": ["storage", "scripting"],
+  "permissions": ["storage", "scripting", "contextMenus"],
   "host_permissions": ["https://openrouter.ai/*"],
   "optional_host_permissions": ["https://*/*", "http://*/*"],
   "background": {
@@ -35,9 +35,11 @@
         "*://www.disneyplus.com/*"
       ],
       "js": [
+        "content/adapters/transcript-cap.js",
         "content/adapters/youtube-transcript.js",
         "content/adapters/youtube.js",
         "content/adapters/dom-video-adapter.js",
+        "content/adapters/caption-capture.js",
         "content/adapters/netflix.js",
         "content/adapters/primevideo.js",
         "content/adapters/disneyplus.js",

@@ -31,7 +31,9 @@ globalThis.TDDW = globalThis.TDDW || { adapters: [] };
       hostSuffix: 'netflix.com',
       isPlayerPage: (loc) => loc.pathname.startsWith('/watch'),
       readTitle,
-      nudgeSelector: '.watch-video'
+      nudgeSelector: '.watch-video',
+      // On-screen subtitle container (only present while subtitles are on).
+      captionSelectors: ['.player-timedtext', '.player-timedtext-text-container']
     })
   );
 })();

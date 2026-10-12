@@ -13,7 +13,7 @@ export const transcriptProvider = {
       return { ok: false, error: 'No transcript available for this video.' };
     }
     try {
-      const text = await chatCompletion(config, buildTranscriptMessages(videoState, config));
+      const text = await chatCompletion(config, buildTranscriptMessages(videoState, config), { temperature: 0, effort: 'low' });
       // 'transcript' = grounded in the actual caption/subtitle text, not the
       // model's memory. The overlay badges this as trustworthy.
       return { ok: true, known: true, recapText: text, source: 'transcript' };

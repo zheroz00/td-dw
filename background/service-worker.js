@@ -15,9 +15,11 @@ const JELLYFIN_MAIN_ID = 'jellyfin-main';
 // Mirror of manifest content_scripts[0].js, with the two Jellyfin files slotted
 // in before index.js (which queries the populated adapter registry).
 const JELLYFIN_ISOLATED_JS = [
+  'content/adapters/transcript-cap.js',
   'content/adapters/youtube-transcript.js',
   'content/adapters/youtube.js',
   'content/adapters/dom-video-adapter.js',
+  'content/adapters/caption-capture.js',
   'content/adapters/netflix.js',
   'content/adapters/primevideo.js',
   'content/adapters/disneyplus.js',
@@ -86,9 +88,29 @@ async function syncJellyfinScripts() {
   console.log('[TD;DW] Jellyfin adapter registered for', pattern);
 }
 
+// Right-click on the toolbar icon -> "TD;DW settings". Chrome adds its own
+// "Options" entry there, but Firefox only offers "Manage Extension", which
+// buries the settings a click deeper. (Re)created on install; menus persist.
+const SETTINGS_MENU_ID = 'tddw-open-settings';
+
+function createSettingsMenu() {
+  chrome.contextMenus.removeAll(() => {
+    chrome.contextMenus.create({
+      id: SETTINGS_MENU_ID,
+      title: 'TD;DW settings',
+      contexts: ['action']
+    });
+  });
+}
+
+chrome.contextMenus.onClicked.addListener((info) => {
+  if (info.menuItemId === SETTINGS_MENU_ID) chrome.runtime.openOptionsPage();
+});
+
 // Fire-and-forget lifecycle hooks: log failures, they have no caller to report to.
 chrome.runtime.onInstalled.addListener(() => {
   console.log('[TD;DW] installed');
+  createSettingsMenu();
   syncJellyfinScripts().catch((err) => console.warn('[TD;DW] Jellyfin script sync failed:', err.message));
 });
 
@@ -147,7 +169,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         msg.history || [],
         msg.question
       );
-      const answer = await chatCompletion(config, messages);
+      const answer = await chatCompletion(config, messages, { effort: 'medium' });
       sendResponse({ ok: true, answer });
     })().catch((err) => sendResponse({ ok: false, error: err.message }));
     return true; // async sendResponse
@@ -159,7 +181,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     // (the options UI), never from a content script running inside a web page.
     // Note: sender.tab is NOT a usable discriminator — the options page runs in
     // a tab too, so it's set for both. Match the sender URL's extension origin.
-    const fromOwnPage = sender.url?.startsWith(`chrome-extension://${chrome.runtime.id}/`);
+    const fromOwnPage = sender.url?.startsWith(chrome.runtime.getURL(''));
     if (!fromOwnPage) {
       sendResponse({ ok: false, error: 'TEST_LLM is only allowed from the extension options page.' });
       return true;
@@ -170,7 +192,8 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       // producing even a two-letter reply; 5 tokens made the test lie.
       await chatCompletion(config, [{ role: 'user', content: 'Reply with OK.' }], {
         maxTokens: 500,
-        temperature: 0
+        temperature: 0,
+        effort: 'low'
       });
       sendResponse({ ok: true });
     })().catch((err) => sendResponse({ ok: false, error: err.message }));
