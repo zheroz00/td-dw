@@ -42,7 +42,8 @@ Phone home-screen bookmark
 
 ```
 tv/
-  server.js          entry: load config, start node:http server, route requests
+  server.js          entry: load config, wire the pieces, start the node:http server
+  lib/http-app.js    routing, auth check, body limits, security headers
   lib/config.js      env vars -> frozen config; exits with a clear list of missing/invalid vars
   lib/auth.js        key check (?key= or Authorization: Bearer), constant-time compare
   lib/jellyfin.js    Jellyfin client: sessions, item, resume point, subtitle VTT, pause
@@ -58,7 +59,7 @@ tv/
   docker-compose.yml
   .env.example
   README.md          setup: API key, env, compose, Quick Actions button, phone bookmark
-test/tv-*.test.js    node:test, runs with the existing `npm test`
+test/tv/*.test.js    node:test, runs with the existing `npm test`
 ```
 
 Zero npm dependencies, Node 22 (the repo already targets Node >= 20 with built-in `fetch`).
@@ -105,7 +106,7 @@ header; recap and answer text is rendered as text nodes, never `innerHTML`.
    most recent `LastActivityDate`. Position = `PlayState.PositionTicks`.
 2. Fallback (no playing candidate): take the matching device's session (idle is fine, it still
    carries `UserId`), or the most recently active session when no device filter is set, then
-   `GET /Users/{userId}/Items/Resume?Limit=1`. Position = the item's
+   `GET /UserItems/Resume?userId=...&limit=1` (Jellyfin 10.9+ path; confirmed in the Shield check). Position = the item's
    `UserData.PlaybackPositionTicks`. The recap is labelled "from your resume point".
 3. Nothing found: a friendly "Nothing is playing in Jellyfin right now" error.
 4. Live session + `PAUSE_ON_RECAP=true` (default): `POST /Sessions/{id}/Playing/Pause`. A pause
