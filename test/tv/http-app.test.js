@@ -67,6 +67,15 @@ test('http: /healthz needs no key', async () => {
   await app.close();
 });
 
+test('http: /favicon.ico answers 204 without a key, so browsers stop logging a 401', async () => {
+  const app = await startApp();
+  const res = await app.call('/favicon.ico', { key: null });
+  assert.equal(res.status, 204);
+  assert.equal(await res.text(), '');
+  assert.equal(res.headers.get('referrer-policy'), 'no-referrer');
+  await app.close();
+});
+
 test('http: the page needs the key and carries the security headers', async () => {
   const app = await startApp();
   assert.equal((await fetch(`${app.base}/`)).status, 401);

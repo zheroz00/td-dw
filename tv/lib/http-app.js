@@ -109,6 +109,10 @@ export function createApp({ config, store, recapService, publicDir, log = consol
 
     if (method === 'GET' && pathname === '/healthz') return sendJson(res, 200, { ok: true });
 
+    // Browsers ask for this on their own, without the key. There is no icon, so
+    // say so quietly instead of logging a 401 in the console on every load.
+    if (method === 'GET' && pathname === '/favicon.ico') return send(res, 204, '', 'text/plain; charset=utf-8');
+
     if (method === 'GET' && pathname.startsWith('/static/')) {
       const name = pathname.slice('/static/'.length);
       // An allow-list, never a path join on user input: nothing else in public/ is reachable.
