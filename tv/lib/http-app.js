@@ -159,7 +159,16 @@ export function createApp({ config, store, recapService, publicDir, log = consol
   }
 
   return async function handle(req, res) {
-    const url = new URL(req.url, 'http://localhost');
+    // The parser accepts targets like `//` that the URL parser rejects. Handled
+    // here, before auth, so one bad request line can't become an unhandled
+    // rejection that takes the whole service down.
+    let url;
+    try {
+      url = new URL(req.url, 'http://localhost');
+    } catch {
+      return send(res, 400, 'Bad request.', 'text/plain; charset=utf-8');
+    }
+
     try {
       await route(req, res, url);
     } catch (err) {

@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
+import net from 'node:net';
 import { mkdtemp, writeFile } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -175,5 +176,32 @@ test('http: /api/ask answers and records the turn', async () => {
 test('http: unknown routes are 404', async () => {
   const app = await startApp();
   assert.equal((await app.call('/api/nope')).status, 404);
+  await app.close();
+});
+
+// fetch normalises the path, so a raw socket is the only way to send `//`.
+function rawRequest(port, requestLine) {
+  return new Promise((resolve, reject) => {
+    const socket = net.connect(port, '127.0.0.1');
+    const chunks = [];
+    socket.on('connect', () => socket.write(`${requestLine}\r\nHost: x\r\nConnection: close\r\n\r\n`));
+    socket.on('data', (chunk) => chunks.push(chunk));
+    socket.setTimeout(2000, () => socket.destroy(new Error('no response from the server')));
+    socket.on('error', reject);
+    socket.on('close', () => resolve(Buffer.concat(chunks).toString('utf8')));
+  });
+}
+
+test('http: a malformed request target is a 400, not a crash', async () => {
+  const app = await startApp();
+  const port = new URL(app.base).port;
+  for (const target of ['//', '//[', '//x:99999/y']) {
+    const raw = await rawRequest(port, `GET ${target} HTTP/1.1`);
+    assert.match(raw, /^HTTP\/1\.1 400 /, target);
+    assert.match(raw, /Bad request\./);
+    assert.match(raw.toLowerCase(), /referrer-policy: no-referrer/);
+  }
+  // Still serving afterwards.
+  assert.equal((await fetch(`${app.base}/healthz`)).status, 200);
   await app.close();
 });
