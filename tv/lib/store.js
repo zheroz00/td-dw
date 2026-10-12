@@ -12,14 +12,18 @@ export function createStore(runRecap) {
   return {
     recap() {
       if (!inFlight) {
-        inFlight = (async () => {
-          try {
-            latest = await runRecap();
-            return latest;
-          } finally {
+        // Start from a resolved promise so runRecap() always runs after this
+        // assignment: a synchronous throw then becomes a rejection, and the
+        // finally below clears inFlight afterwards instead of before it is set.
+        inFlight = Promise.resolve()
+          .then(() => runRecap())
+          .then((record) => {
+            latest = record;
+            return record;
+          })
+          .finally(() => {
             inFlight = null;
-          }
-        })();
+          });
       }
       return inFlight;
     },

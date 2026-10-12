@@ -67,3 +67,28 @@ test('store: the thread keeps only the newest MAX_HISTORY turns', async () => {
   assert.equal(history.length, MAX_HISTORY);
   assert.equal(history[0].question, 'q5');
 });
+
+test('store: a synchronous throw from runRecap does not wedge the store', async () => {
+  let n = 0;
+  const store = createStore(() => {
+    n++;
+    if (n === 1) throw new Error('sync boom');
+    return Promise.resolve(record('ok'));
+  });
+  await assert.rejects(store.recap(), /sync boom/);
+  assert.equal(store.isRunning(), false);
+  assert.equal((await store.recap()).id, 'ok');
+  assert.equal(n, 2);
+});
+
+test('store: a reader waiting on a failing run gets the previous recap', async () => {
+  let n = 0;
+  const d = deferred();
+  const store = createStore(() => (++n === 1 ? Promise.resolve(record('r1')) : d.promise));
+  await store.recap();
+  const failing = store.recap();
+  const reader = store.latest();
+  d.reject(new Error('LLM down'));
+  await assert.rejects(failing, /LLM down/);
+  assert.equal((await reader).id, 'r1');
+});
