@@ -1,6 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { splitBold, parseRecap, formatTime } from '../../tv/public/render.js';
+import { readFile } from 'node:fs/promises';
+import { splitBold, parseRecap, formatTime, LIST_MARKER, TIME_CHIP } from '../../tv/public/render.js';
+import { formatTime as promptsFormatTime } from '../../background/providers/prompts.js';
 
 test('parseRecap: strips list markers', () => {
   const out = parseRecap('- one\n• two\n1. three\n2) four\n* five');
@@ -35,6 +37,16 @@ test('parseRecap: blank lines and empty input give nothing', () => {
   assert.deepEqual(parseRecap(null), []);
 });
 
+test('parseRecap: a chip with no text after it has no runs', () => {
+  assert.deepEqual(parseRecap('- [0:05]'), [{ time: '0:05', runs: [] }]);
+});
+
+test('parseRecap: bold after a chip keeps both', () => {
+  assert.deepEqual(parseRecap('- [1:02] **x** y'), [
+    { time: '1:02', runs: [{ text: 'x', bold: true }, { text: ' y', bold: false }] }
+  ]);
+});
+
 test('splitBold: plain text is one run', () => {
   assert.deepEqual(splitBold('plain'), [{ text: 'plain', bold: false }]);
 });
@@ -44,4 +56,19 @@ test('formatTime: m:ss, h:mm:ss and unknown', () => {
   assert.equal(formatTime(3723), '1:02:03');
   assert.equal(formatTime(NaN), '?');
   assert.equal(formatTime(null), '?');
+});
+
+// render.js has to be a copy: a content script and a static page can't share
+// modules. These tests are what stop the copies drifting apart.
+test("formatTime matches the prompts' formatTime", () => {
+  for (const seconds of [0, 59, 65, 3599, 3600, 3723]) {
+    assert.equal(formatTime(seconds), promptsFormatTime(seconds), `at ${seconds}s`);
+  }
+});
+
+test('the overlay still parses with the same regexes', async () => {
+  const overlay = await readFile(new URL('../../content/ui/overlay.js', import.meta.url), 'utf8');
+  const hint = 'the overlay parsing changed, so tv/public/render.js must change to match';
+  assert.ok(overlay.includes(LIST_MARKER.source), `list marker regex missing from overlay.js: ${hint}`);
+  assert.ok(overlay.includes(TIME_CHIP.source), `time chip regex missing from overlay.js: ${hint}`);
 });

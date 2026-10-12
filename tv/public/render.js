@@ -6,8 +6,8 @@
 
 // `*` is only a bullet when it's a lone asterisk, so a line that opens with
 // **bold** keeps both of its markers.
-const LIST_MARKER = /^\s*(?:[-•]|\*(?!\*)|\d+[.)])\s*/;
-const TIME_CHIP = /^\[(\d{1,2}(?::\d{2}){1,2})\]\s*/;
+export const LIST_MARKER = /^\s*(?:[-•]|\*(?!\*)|\d+[.)])\s*/;
+export const TIME_CHIP = /^\[(\d{1,2}(?::\d{2}){1,2})\]\s*/;
 
 // "a **b** c" -> [{ text: 'a ', bold: false }, { text: 'b', bold: true }, { text: ' c', bold: false }]
 export function splitBold(text) {
