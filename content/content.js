@@ -75,7 +75,8 @@
     // Any failure here just means falling back to knowledge mode.
     if (adapter.getTranscriptUpTo && Number.isFinite(state.currentTimeSeconds)) {
       try {
-        state.transcript = await adapter.getTranscriptUpTo(state.currentTimeSeconds);
+        const maxChars = await CMU.getTranscriptBudget();
+        state.transcript = await adapter.getTranscriptUpTo(state.currentTimeSeconds, maxChars);
       } catch (err) {
         console.warn('[TD;DW] transcript fetch failed, using knowledge mode:', err.message);
       }

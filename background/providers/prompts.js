@@ -5,6 +5,25 @@ const BULLET_COUNTS = { short: '3-5', medium: '5-8', detailed: '8-12' };
 
 export const NO_KNOWLEDGE_TOKEN = 'NO_KNOWLEDGE';
 
+// Matches the token at the start of the reply even when the model wraps it in
+// markdown ("- **NO_KNOWLEDGE**", "NO_KNOWLEDGE.") instead of emitting it bare,
+// which a plain startsWith() missed.
+const NO_KNOWLEDGE_RE = /^\W*NO_KNOWLEDGE\b/;
+
+export function isNoKnowledge(text) {
+  return NO_KNOWLEDGE_RE.test((text || '').trim());
+}
+
+// Strips the token and any leading punctuation/markdown/whitespace so the
+// remaining explanation sentence can be shown to the user on its own.
+export function stripNoKnowledge(text) {
+  return (text || '')
+    .trim()
+    .replace(NO_KNOWLEDGE_RE, '')
+    .replace(/^[\s*_.:,-]+/, '')
+    .trim();
+}
+
 export function formatTime(seconds) {
   if (!Number.isFinite(seconds)) return 'an unknown time';
   const s = Math.floor(seconds);
@@ -37,7 +56,8 @@ export function buildRecapMessages(videoState, config) {
     `(4b) Only if no work you know plausibly matches these clues${episodeInfo ? ' (including the episode)' : ''}, reply with the single token ${NO_KNOWLEDGE_TOKEN} on the first line, then one sentence saying you don't know it. Never guess or fabricate plot for an unrecognized work — but do not refuse merely because a title is ambiguous when the runtime settles it.`,
     `(5) Format: at most ${bullets} concise bullet points in plain text, one per line, each starting with "- ". If little has happened yet, use fewer bullets — even a single bullet is a complete answer.`,
     `(6) You may bold one or two key character or place names per bullet with **double asterisks**; use no other formatting. Never include timestamps — you do not know exact timings.`,
-    `(7) Output ONLY the bullet lines. No preamble, no closing remarks, no commentary about how much material is available, and no notes about your limitations.`
+    `(7) Output ONLY the bullet lines. No preamble, no closing remarks, no commentary about how much material is available, and no notes about your limitations.`,
+    `(8) Write in the language the title is presented in.`
   ].join(' ');
 
   const user = `Catch me up on "${title}"${episode} up to ${now}.`;
@@ -70,10 +90,52 @@ export function buildTranscriptMessages(videoState, config) {
     `(4) Format: at most ${bullets} concise bullet points in plain text, one per line, each starting with "- ". If little has happened yet, use fewer bullets — even a single bullet is a complete answer.`,
     `(5) Every transcript line begins with its [m:ss] timestamp. Start each bullet with the [m:ss] timestamp (copied from the transcript) of the moment that bullet covers, in chronological order.`,
     `(6) You may bold one or two key names or terms per bullet with **double asterisks**; use no other formatting.`,
-    `(7) Output ONLY the bullet lines. No preamble, no closing remarks, no commentary about how much or little transcript is available, and no notes about your limitations.`
+    `(7) Output ONLY the bullet lines. No preamble, no closing remarks, no commentary about how much or little transcript is available, and no notes about your limitations.`,
+    `(8) Write in the language of the transcript when one is provided, otherwise in the language of the title and the user's question.`
   ].filter(Boolean).join(' ');
 
   const user = `Transcript of "${title}"${episode} up to ${now}:\n\n${transcript.text}\n\nCatch me up.`;
+
+  return [
+    { role: 'system', content: system },
+    { role: 'user', content: user }
+  ];
+}
+
+// Hybrid: a DRM player (Netflix, Prime Video, Disney+) where caption-capture.js
+// collected the cues shown on screen since the tab loaded. The captured window
+// (coverageStart..now) is real dialogue; everything before it is the model's
+// memory, same rules as the knowledge recap. The dialogue's main job is to fix
+// WHERE the viewer is in the story, which is exactly what memory mode guesses
+// worst; its second job is to ground the most recent bullets.
+export function buildHybridMessages(videoState, config) {
+  const { service, title, episodeInfo, currentTimeSeconds, durationSeconds, transcript } = videoState;
+  const now = formatTime(currentTimeSeconds);
+  const total = formatTime(durationSeconds);
+  const from = formatTime(transcript?.coverageStartSeconds);
+  const bullets = BULLET_COUNTS[config.summaryLength] || BULLET_COUNTS.medium;
+  const episode = episodeInfo ? ` (${episodeInfo})` : '';
+
+  const system = [
+    `You are TD;DW, a spoiler-free recap assistant.`,
+    `The user is watching "${title}"${episode} on ${service} and is currently at ${now} of ${total}.`,
+    `The user will provide the on-screen subtitles they have seen, covering ONLY ${from} to ${now}; nothing before ${from} was captured.`,
+    `HARD RULES:`,
+    `(1) Recap ONLY events that occur before ${now}. Never reveal, hint at, or foreshadow anything after that point, and never name characters who have not yet appeared.`,
+    `(2) First use the subtitles to work out exactly where in the story ${now} falls. Then recap from the beginning: events before ${from} from your own knowledge of the work, events from ${from} onward grounded in the subtitles.`,
+    `(3) If you are unsure whether something happens before or after ${now}, omit it entirely. The subtitles are the boundary: anything they have not reached yet is off limits.`,
+    `(4) Identify the work using ALL available clues together: the title, the platform (${service}), the runtime of ${total}, and the dialogue itself. Titles are often shared by multiple works; pick the one the dialogue matches.`,
+    `(4b) Only if you cannot recognise the work even with the dialogue, reply with the single token ${NO_KNOWLEDGE_TOKEN} on the first line, then one sentence saying so. Never fabricate plot for an unrecognised work.`,
+    transcript?.truncated
+      ? `(4c) The subtitles were evenly sampled to fit; there may be small gaps between lines.`
+      : ``,
+    `(5) Format: at most ${bullets} concise bullet points in plain text, one per line, each starting with "- ". If little has happened yet, use fewer bullets.`,
+    `(6) You may bold one or two key character or place names per bullet with **double asterisks**; use no other formatting. Do not include timestamps.`,
+    `(7) Output ONLY the bullet lines. No preamble, no closing remarks, no commentary about the subtitles' coverage, and no notes about your limitations.`,
+    `(8) Write in the language of the subtitles.`
+  ].filter(Boolean).join(' ');
+
+  const user = `Subtitles seen for "${title}"${episode}, ${from} to ${now}:\n\n${transcript.text}\n\nCatch me up on everything up to ${now}.`;
 
   return [
     { role: 'system', content: system },
@@ -115,14 +177,20 @@ export function buildQuestionMessages(videoState, config, recapText, history, qu
     `(a) Answer directly in 1-3 sentences of plain, conversational prose — no bullet points, no preamble, no closing remarks.`,
     `(b) When a transcript is provided below, prefer it for specifics about what has actually been shown on screen.`,
     `(c) You may bold one or two key names or terms with **double asterisks**; use no other formatting.`,
-    `(d) If you genuinely don't know, say so briefly rather than inventing an answer.`
+    `(d) If you genuinely don't know, say so briefly rather than inventing an answer.`,
+    `(e) Write in the language of the transcript when one is provided, otherwise in the language of the title and the user's question.`
   ];
 
   const system = [...common, ...spoilerFree, ...format].join(' ');
 
   let contextBlock = `Here is the spoiler-free recap you gave me for "${title}"${episode} up to ${now}:\n\n${recapText}`;
   if (transcript?.text) {
-    contextBlock += `\n\nCaption transcript up to ${now} (use for specifics about what's been shown):\n\n${transcript.text}`;
+    // A partial (live-captured) transcript only covers a window; say so, or the
+    // model treats its first line as the start of the story.
+    const span = transcript.partial
+      ? `from ${formatTime(transcript.coverageStartSeconds)} to ${now} (nothing earlier was captured)`
+      : `up to ${now}`;
+    contextBlock += `\n\nCaption transcript ${span} (use for specifics about what's been shown):\n\n${transcript.text}`;
   }
 
   // Keep a sliding window of the most recent turns. The recap + transcript

@@ -60,7 +60,16 @@ globalThis.TDDW = globalThis.TDDW || { adapters: [] };
       readTitle,
       nudgeSelector: 'video',
       readPlayerTime,
-      playerTimeOnly: true
+      playerTimeOnly: true,
+      // Subtitle renderer, inside the Hive player's shadow DOM (caption-capture
+      // falls back to a shadow-piercing search). Outer, long-lived containers
+      // first: per-cue nodes get torn down between lines, which would drop the
+      // observer. Expect to extend this list when Disney redesigns again.
+      captionSelectors: [
+        '.dss-subtitle-renderer-wrapper',
+        '.dss-subtitle-renderer',
+        '[class*="subtitle-renderer"]'
+      ]
     })
   );
 })();

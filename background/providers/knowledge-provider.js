@@ -1,5 +1,5 @@
 import { chatCompletion } from '../llm-client.js';
-import { buildRecapMessages, NO_KNOWLEDGE_TOKEN } from './prompts.js';
+import { buildRecapMessages, isNoKnowledge, stripNoKnowledge } from './prompts.js';
 
 // v1 provider: relies on the model's own knowledge of the title.
 // Result shape (shared by all providers):
@@ -18,14 +18,14 @@ export const knowledgeProvider = {
       return { ok: false, error: 'No API key configured. Open settings to add your OpenRouter key.' };
     }
     try {
-      const text = await chatCompletion(config, buildRecapMessages(videoState, config));
-      if (text.startsWith(NO_KNOWLEDGE_TOKEN)) {
-        const explanation = text.slice(NO_KNOWLEDGE_TOKEN.length).trim();
+      const text = await chatCompletion(config, buildRecapMessages(videoState, config), { temperature: 0, effort: 'medium' });
+      if (isNoKnowledge(text)) {
+        const explanation = stripNoKnowledge(text);
         return {
           ok: true,
           known: false,
           message: explanation ||
-            `The model doesn't know "${videoState.title}" well enough for a reliable recap. A transcript-based mode is planned.`
+            `The model doesn't know "${videoState.title}" well enough for a reliable recap. Try a stronger model in settings, or a title with subtitles.`
         };
       }
       return { ok: true, known: true, recapText: text, source: 'knowledge' };
