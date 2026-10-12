@@ -1,0 +1,10 @@
+.git
+dist
+node_modules
+**/.env
+docs
+test
+icons
+options
+firefox
+scripts
