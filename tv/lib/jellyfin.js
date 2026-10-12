@@ -23,7 +23,9 @@ export function createJellyfinClient({ url, apiKey }, fetchImpl = globalThis.fet
     try {
       res = await fetchImpl(`${url}${path}`, { method, headers });
     } catch (err) {
-      throw new JellyfinError(`Can't reach Jellyfin at ${url} (${err.message})`);
+      // fetch() reports every network failure as "fetch failed"; the real reason
+      // (ECONNREFUSED, ENOTFOUND, ...) is on err.cause.
+      throw new JellyfinError(`Can't reach Jellyfin at ${url} (${err.cause?.code ?? err.message})`);
     }
     if (res.status === 401 || res.status === 403) {
       throw new JellyfinError('Jellyfin rejected the API key. Check JELLYFIN_API_KEY.', res.status);
@@ -34,7 +36,20 @@ export function createJellyfinClient({ url, apiKey }, fetchImpl = globalThis.fet
     return res;
   }
 
-  const json = async (path) => (await request(path)).json();
+  // A 200 that isn't JSON means the URL points at something other than the API
+  // (the web client's index.html after a pasted /web/#/home.html, an SSO login
+  // page). Say so in plain words instead of leaking the parser's message.
+  async function json(path) {
+    const res = await request(path);
+    try {
+      return await res.json();
+    } catch {
+      throw new JellyfinError(
+        "Jellyfin answered with something that isn't JSON. JELLYFIN_URL should be the server address only, like http://jellyfin.local:8096 (no /web/ or #).",
+        res.status
+      );
+    }
+  }
 
   return {
     getSessions: () => json('/Sessions'),

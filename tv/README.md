@@ -11,7 +11,7 @@ This is the TV side of [TD;DW](../README.md). A browser extension can't run on a
 - **LAN only, no HTTPS.** The service speaks plain HTTP. Put it behind a reverse proxy with TLS before you expose it beyond your home network.
 - **The key lives in the URL.** The TV button and the phone bookmark both carry `?key=...`, so treat them like passwords. Anyone with the link can trigger recaps (and spend your LLM credits).
 - **Needs Jellyfin 10.9 or newer.** The resume-point fallback uses an endpoint that older servers don't have.
-- **Image-only subtitles get a memory recap.** If a title only has PGS or VOBSUB subtitles (pictures of text), there is no text to read, so the recap comes from the model's memory and the page says so with a "From memory" badge. Text subtitles (SRT, ASS, WebVTT and so on) give a transcript-grade recap.
+- **Image-only subtitles get a memory recap.** If a title only has PGS or VOBSUB subtitles (pictures of text), there is no text to read, so the recap comes from the model's memory and the page says so with a "From the model's memory, may be imperfect" badge. Text subtitles (SRT, ASS, WebVTT and so on) give a transcript-grade recap.
 - **The recap pauses the TV.** Set `PAUSE_ON_RECAP=false` if you'd rather it didn't.
 - **You need an LLM endpoint.** Any OpenAI-compatible one works. See [Choosing a model](#choosing-a-model) before you pick, because a thinking model on a small local setup can be slow or return nothing.
 
@@ -26,7 +26,7 @@ You need Docker with Compose, and the whole repo cloned (the image builds from t
 
        cp .env.example .env
 
-   Fill in `.env` using the table below. `.env` holds secrets and is git-ignored, so don't commit it. To make a `TDDW_TV_KEY`, run `openssl rand -hex 24`.
+   Fill in `.env` using the table below. Read [Choosing a model](#choosing-a-model) before you pick the `LLM_` values. `.env` holds secrets and is git-ignored, so don't commit it. To make a `TDDW_TV_KEY`, run `openssl rand -hex 24`.
 3. **Start it.**
 
        docker compose up -d --build
@@ -111,9 +111,13 @@ Phone home-screen bookmark
 ## Troubleshooting
 
 - **"Nothing is playing in Jellyfin right now"** (or the same message with your device name in it). The service found no video session and no resume point. Set `JELLYFIN_DEVICE` to part of your TV's name as Jellyfin shows it (Dashboard > Devices), or clear it to accept any device. Also check that the Jellyfin app on the TV is signed in as a real user and has played something.
-- **"Jellyfin rejected the API key".** `JELLYFIN_API_KEY` is wrong, was revoked, or has a stray space or newline in `.env`. Create a fresh key and restart with `docker compose up -d`.
+- **"Jellyfin rejected the API key".** Jellyfin answers 401 or 403 when `JELLYFIN_API_KEY` is wrong, was revoked, or is missing. Create a fresh key in Dashboard > API Keys, put it in `.env` and restart with `docker compose up -d`.
+- **"JELLYFIN_URL should be the server address only".** Use the server address, like `http://jellyfin.local:8096`, not the page you see in the browser (`.../web/#/home.html`). A `#` or `?` in the URL is rejected at startup. A leftover `/web/` path gets through that check and shows up at the first button press as "Jellyfin answered with something that isn't JSON" (a proxy login page does the same), so strip it too. A real sub-path like `https://example.com/jellyfin` is fine.
 - **"Can't reach Jellyfin at ...".** Inside the container, `localhost` is the container itself. Use the Jellyfin machine's LAN address or hostname in `JELLYFIN_URL`, and make sure the container can route to it.
 - **"Missing or wrong key".** The URL is missing `?key=...` or has a typo. Copy the full link from your setup again. The key in the URL has to match `TDDW_TV_KEY` exactly.
 - **Recaps are slow, or "The model took longer than N seconds".** Almost always a thinking model. Use a faster model, or set `LLM_REASONING_EFFORT=none` (or `low`) so it doesn't think for minutes. See [Choosing a model](#choosing-a-model).
-- **A missing-key error from the model.** If `LLM_BASE_URL` points at OpenRouter and `LLM_API_KEY` is empty, recaps fail with "No API key configured" or a 401 from the endpoint. Put your OpenRouter key in `LLM_API_KEY` and restart. Only local endpoints can go without one.
-- **The recap says "From memory".** That title has no text subtitles (only PGS or VOBSUB images), so the recap comes from the model's memory. Treat it as a refresher. `SUBTITLE_LANG` is only a preference: if the title has a text track in any language, it gets used.
+- **"LLM_API_KEY is required for OpenRouter and Gemini".** The service refuses to start when `LLM_BASE_URL` points at OpenRouter or Gemini and `LLM_API_KEY` is blank. `.env.example` ships with the key blank, so paste yours in and restart. Only local endpoints can go without one. A key that is filled in but wrong shows up later as a 401 from the endpoint.
+- **The recap says "From the model's memory, may be imperfect".** There was no subtitle text to read, so the recap comes from the model's memory. Treat it as a refresher. Common causes:
+  - The title has no text subtitles at all (only PGS or VOBSUB images, or none). `SUBTITLE_LANG` is only a preference: if the title has a text track in any language, it gets used.
+  - You pressed the button before the first subtitle line, so there was nothing to read yet.
+  - The subtitle download failed. The page then also shows "Couldn't load the subtitles (...)" with the reason, and `docker compose logs` has the details.

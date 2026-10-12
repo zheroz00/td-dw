@@ -60,3 +60,26 @@ test('jellyfin: a network failure says it cannot reach the server', async () => 
 test('jellyfin: other failures name the path but not the query string', async () => {
   await assert.rejects(createJellyfinClient(J, fakeFetch({})).getItem('u', 'i'), /GET \/Items\/i failed \(404\)/);
 });
+
+test('jellyfin: a network failure shows the underlying error code, not just "fetch failed"', async () => {
+  const err = Object.assign(new TypeError('fetch failed'), { cause: { code: 'ECONNREFUSED' } });
+  const f = fakeFetch({ [`GET ${BASE}/Sessions`]: err });
+  await assert.rejects(createJellyfinClient(J, f).getSessions(), (e) => {
+    assert.ok(e instanceof JellyfinError);
+    assert.match(e.message, /ECONNREFUSED/);
+    assert.ok(!e.message.includes('fetch failed'));
+    return true;
+  });
+});
+
+test('jellyfin: a 200 that is not JSON points at JELLYFIN_URL instead of leaking a parse error', async () => {
+  const f = fakeFetch({ [`GET ${BASE}/Sessions`]: '<!DOCTYPE html><html></html>' });
+  await assert.rejects(createJellyfinClient(J, f).getSessions(), (err) => {
+    assert.ok(err instanceof JellyfinError);
+    assert.equal(err.status, 200);
+    assert.match(err.message, /isn't JSON/);
+    assert.match(err.message, /JELLYFIN_URL/);
+    assert.ok(!/Unexpected token|SyntaxError/.test(err.message));
+    return true;
+  });
+});

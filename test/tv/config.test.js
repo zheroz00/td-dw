@@ -96,3 +96,30 @@ test('loadConfig: rejects an unknown LLM_REASONING_EFFORT', () => {
     return true;
   });
 });
+
+test('loadConfig: rejects a Jellyfin URL copied from the browser bar (fragment or query)', () => {
+  for (const bad of ['http://jellyfin.local:8096/web/#/home.html', 'http://jellyfin.local:8096/?x=1']) {
+    assert.throws(() => loadConfig({ ...VALID, JELLYFIN_URL: bad }), (err) => {
+      assert.ok(err instanceof ConfigError);
+      assert.ok(err.problems.some((p) => p.startsWith('JELLYFIN_URL should be the server address only')));
+      assert.ok(!err.message.includes(bad), 'the URL must not be echoed');
+      return true;
+    });
+  }
+});
+
+test('loadConfig: OpenRouter or Gemini with a blank LLM_API_KEY is rejected at startup', () => {
+  for (const baseUrl of ['https://openrouter.ai/api/v1', 'https://generativelanguage.googleapis.com/v1beta/openai']) {
+    assert.throws(() => loadConfig({ ...VALID, LLM_BASE_URL: baseUrl, LLM_API_KEY: '   ' }), (err) => {
+      assert.ok(err instanceof ConfigError);
+      assert.ok(err.problems.includes('LLM_API_KEY is required for OpenRouter and Gemini (leave it blank only for local endpoints)'));
+      return true;
+    });
+  }
+});
+
+test('loadConfig: OpenRouter with a key is accepted, and a custom endpoint may leave the key blank', () => {
+  const c = loadConfig({ ...VALID, LLM_BASE_URL: 'https://openrouter.ai/api/v1', LLM_API_KEY: 'sk-or-test' });
+  assert.equal(c.llm.apiKey, 'sk-or-test');
+  assert.equal(loadConfig({ ...VALID, LLM_BASE_URL: 'http://llm.local:4000/v1' }).llm.apiKey, '');
+});

@@ -2,6 +2,8 @@
 // startup. Every problem is collected and reported together, so a bad .env
 // fails loudly before the first button press instead of halfway through one.
 
+import { providerFromUrl } from '../../background/config.js';
+
 const SUMMARY_LENGTHS = ['short', 'medium', 'detailed'];
 const TRANSCRIPT_BUDGETS = ['standard', 'local'];
 const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high'];
@@ -36,7 +38,13 @@ export function loadConfig(env = process.env) {
       const { protocol } = new URL(value);
       ok = protocol === 'http:' || protocol === 'https:';
     } catch { /* reported below */ }
-    if (!ok) problems.push(`${name} must be an http:// or https:// URL (got "${value}")`);
+    if (!ok) {
+      problems.push(`${name} must be an http:// or https:// URL (got "${value}")`);
+    } else if (/[#?]/.test(value)) {
+      // Pasting the browser bar's address (.../web/#/home.html) would put every
+      // API path inside the fragment. The value is not echoed back.
+      problems.push(`${name} should be the server address only (no #, no ? query), e.g. http://jellyfin.local:8096`);
+    }
     return value.replace(/\/+$/, '');
   };
 
@@ -73,6 +81,10 @@ export function loadConfig(env = process.env) {
     problems.push('TDDW_TV_KEY must be at least 16 letters, digits, - or _ (generate one with: openssl rand -hex 24)');
   }
   const llmBaseUrl = httpUrl('LLM_BASE_URL');
+  const llmApiKey = read('LLM_API_KEY');
+  if (!llmApiKey && llmBaseUrl && providerFromUrl(llmBaseUrl) !== 'custom') {
+    problems.push('LLM_API_KEY is required for OpenRouter and Gemini (leave it blank only for local endpoints)');
+  }
   const llmModel = required('LLM_MODEL');
   const summaryLength = oneOf('SUMMARY_LENGTH', SUMMARY_LENGTHS, 'medium');
   const transcriptBudget = oneOf('TRANSCRIPT_BUDGET', TRANSCRIPT_BUDGETS, 'standard');
@@ -97,7 +109,7 @@ export function loadConfig(env = process.env) {
     // the extension's providers and prompts take it unchanged.
     llm: Object.freeze({
       baseUrl: llmBaseUrl,
-      apiKey: read('LLM_API_KEY'),
+      apiKey: llmApiKey,
       model: llmModel,
       summaryLength,
       recapProvider: 'auto',

@@ -165,7 +165,7 @@ same promise. History is capped at 50 turns (the prompt already only sends the l
   nothing playing), episode vs movie `videoState`, subtitle stream choice, auth (missing, wrong,
   query, header), render (HTML stays text, bold, chips, list-marker stripping), store
   (in-flight dedupe, history cap), config validation.
-- Live: container on hank, `curl` the API while something plays on the Shield, then the
+- Live: container on the Docker host, `curl` the API while something plays on the Shield, then the
   Quick Actions button, then the phone bookmark with a follow-up question.
 
 ## Out of scope for v1

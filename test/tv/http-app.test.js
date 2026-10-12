@@ -1,8 +1,8 @@
-import { test } from 'node:test';
+import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import http from 'node:http';
 import net from 'node:net';
-import { mkdtemp, writeFile } from 'node:fs/promises';
+import { mkdtemp, writeFile, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createApp, MAX_QUESTION_CHARS } from '../../tv/lib/http-app.js';
@@ -26,6 +26,7 @@ await writeFile(join(publicDir, 'index.html'), '<p>PAGE</p>');
 await writeFile(join(publicDir, 'app.js'), '// app');
 await writeFile(join(publicDir, 'render.js'), '// render');
 await writeFile(join(publicDir, 'styles.css'), '/* css */');
+after(() => rm(publicDir, { recursive: true, force: true }));
 
 const RECORD = {
   id: 'r1',
@@ -145,7 +146,9 @@ test('http: recap errors become readable statuses', async () => {
 
 test('http: /api/ask validates the question', async () => {
   const app = await startApp();
-  assert.equal((await app.call('/api/ask', { body: { question: 'Who?' } })).status, 409); // no recap yet
+  const noRecap = await app.call('/api/ask', { body: { question: 'Who?' } });
+  assert.equal(noRecap.status, 409);
+  assert.equal((await noRecap.json()).error, 'There is no recap to ask about yet.');
   await app.call('/api/recap', { method: 'POST' });
   assert.equal((await app.call('/api/ask', { body: { question: '   ' } })).status, 400);
   assert.equal((await app.call('/api/ask', { body: { question: 'x'.repeat(MAX_QUESTION_CHARS + 1) } })).status, 400);
@@ -167,7 +170,9 @@ test('http: /api/ask refuses a question about a replaced recap', async () => {
 test('http: /api/ask refuses when the recap has no content to ask about', async () => {
   const app = await startApp({ runRecap: async () => ({ ...structuredClone(RECORD), result: { ok: true, known: false, message: 'Unknown title.' } }) });
   await app.call('/api/recap', { method: 'POST' });
-  assert.equal((await app.call('/api/ask', { body: { question: 'Who?' } })).status, 409);
+  const res = await app.call('/api/ask', { body: { question: 'Who?' } });
+  assert.equal(res.status, 409);
+  assert.equal((await res.json()).error, "The latest recap didn't work, so there's nothing to ask about. Press New recap.");
   await app.close();
 });
 

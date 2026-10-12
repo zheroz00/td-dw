@@ -147,8 +147,9 @@ export function createApp({ config, store, recapService, publicDir, log = consol
       }
 
       const record = await store.latest();
-      if (!record?.result?.ok || !record.result.known) {
-        throw new HttpError(409, 'There is no recap to ask about yet.');
+      if (!record) throw new HttpError(409, 'There is no recap to ask about yet.');
+      if (!record.result?.ok || !record.result.known) {
+        throw new HttpError(409, "The latest recap didn't work, so there's nothing to ask about. Press New recap.");
       }
       if (body.recapId && body.recapId !== record.id) {
         throw new HttpError(409, 'A newer recap replaced this one. Reload the page to ask about it.');
