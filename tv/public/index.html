@@ -1,0 +1,43 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="referrer" content="no-referrer">
+  <meta name="theme-color" content="#0e1014">
+  <title>TD;DW</title>
+  <link rel="stylesheet" href="/static/styles.css">
+  <script type="module" src="/static/app.js"></script>
+</head>
+<body>
+  <main class="app">
+    <header>
+      <p class="brand">TD;DW</p>
+      <h1 id="title" class="title"></h1>
+      <p id="meta" class="meta"></p>
+    </header>
+
+    <p id="status" class="status" role="status" aria-live="polite" hidden></p>
+
+    <section id="recap" hidden>
+      <p id="badge" class="badge"></p>
+      <p id="note" class="note" hidden></p>
+      <ul id="bullets" class="bullets"></ul>
+    </section>
+
+    <section id="qa" class="qa" hidden>
+      <div id="thread" class="thread" aria-live="polite"></div>
+      <form id="ask-form" class="ask">
+        <input id="ask-input" name="question" type="text" maxlength="2000" autocomplete="off"
+               enterkeyhint="send" placeholder="Ask about what you've seen" aria-label="Follow-up question">
+        <button id="ask-button" type="submit">Ask</button>
+      </form>
+    </section>
+
+    <footer class="foot">
+      <button id="new-recap" class="secondary" type="button" hidden>New recap</button>
+      <p id="tv-hint" class="tv-hint" hidden>Press Back to return to your show.</p>
+    </footer>
+  </main>
+</body>
+</html>
