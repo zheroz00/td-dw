@@ -4,6 +4,7 @@
 
 const SUMMARY_LENGTHS = ['short', 'medium', 'detailed'];
 const TRANSCRIPT_BUDGETS = ['standard', 'local'];
+const REASONING_EFFORTS = ['none', 'minimal', 'low', 'medium', 'high'];
 const DEFAULT_PORT = 8795;
 // The key travels in a URL (the TV button and the phone bookmark), so it has
 // to survive a query string untouched: letters, digits, '-' and '_' only.
@@ -75,6 +76,7 @@ export function loadConfig(env = process.env) {
   const llmModel = required('LLM_MODEL');
   const summaryLength = oneOf('SUMMARY_LENGTH', SUMMARY_LENGTHS, 'medium');
   const transcriptBudget = oneOf('TRANSCRIPT_BUDGET', TRANSCRIPT_BUDGETS, 'standard');
+  const reasoningEffort = oneOf('LLM_REASONING_EFFORT', REASONING_EFFORTS, null);
   const spoilerFreeAnswers = flag('SPOILER_FREE_ANSWERS', true);
   const pauseOnRecap = flag('PAUSE_ON_RECAP', true);
   const port = portNumber();
@@ -100,7 +102,8 @@ export function loadConfig(env = process.env) {
       summaryLength,
       recapProvider: 'auto',
       spoilerFreeAnswers,
-      transcriptBudget
+      transcriptBudget,
+      reasoningEffort
     })
   });
 }

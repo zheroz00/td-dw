@@ -23,7 +23,8 @@ test('loadConfig: valid env gets defaults and a trimmed URL', () => {
     summaryLength: 'medium',
     recapProvider: 'auto',
     spoilerFreeAnswers: true,
-    transcriptBudget: 'standard'
+    transcriptBudget: 'standard',
+    reasoningEffort: null
   });
   assert.ok(Object.isFrozen(c) && Object.isFrozen(c.llm) && Object.isFrozen(c.jellyfin));
 });
@@ -80,4 +81,18 @@ test('loadConfig: rejects bad URLs, flags, choices and ports', () => {
   assert.throws(() => loadConfig({ ...VALID, PAUSE_ON_RECAP: 'maybe' }), /PAUSE_ON_RECAP must be true or false/);
   assert.throws(() => loadConfig({ ...VALID, SUMMARY_LENGTH: 'huge' }), /SUMMARY_LENGTH must be one of/);
   assert.throws(() => loadConfig({ ...VALID, PORT: '99999' }), /PORT must be a whole number/);
+});
+
+test('loadConfig: LLM_REASONING_EFFORT is optional and accepts the known efforts', () => {
+  assert.equal(loadConfig(VALID).llm.reasoningEffort, null);
+  assert.equal(loadConfig({ ...VALID, LLM_REASONING_EFFORT: 'none' }).llm.reasoningEffort, 'none');
+  assert.equal(loadConfig({ ...VALID, LLM_REASONING_EFFORT: 'High' }).llm.reasoningEffort, 'high');
+});
+
+test('loadConfig: rejects an unknown LLM_REASONING_EFFORT', () => {
+  assert.throws(() => loadConfig({ ...VALID, LLM_REASONING_EFFORT: 'max' }), (err) => {
+    assert.ok(err instanceof ConfigError);
+    assert.ok(err.problems.some((p) => p.startsWith('LLM_REASONING_EFFORT must be one of')));
+    return true;
+  });
 });

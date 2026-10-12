@@ -8,19 +8,32 @@ import { providerFromUrl } from './config.js';
 // cannot be turned off on 3.x Flash, only lowered). OpenRouter needs the nested
 // `reasoning: { effort }` object and ignores a top-level `reasoning_effort`.
 // Custom/local OpenAI-compatible servers may reject unknown fields entirely, so
-// they get nothing, same as when no effort was requested at all.
-export function reasoningFields(baseUrl, effort) {
+// by default they get nothing. Only when the user explicitly configured an effort
+// (`explicit`) do they get the OpenAI-standard top-level field, which Ollama, vLLM,
+// LM Studio and OpenAI itself read.
+export function reasoningFields(baseUrl, effort, { explicit = false } = {}) {
   if (!effort) return {};
   const provider = providerFromUrl(baseUrl);
   if (provider === 'openrouter') return { reasoning: { effort } };
   if (provider === 'gemini') return { reasoning_effort: effort };
-  return {};
+  return explicit ? { reasoning_effort: effort } : {};
+}
+
+// A slow thinking model can run for minutes. Without our own limit Node's fetch
+// gives up after its 300 s header timeout with a misleading "fetch failed".
+export const LLM_TIMEOUT_MS = 120000;
+
+function timeoutError(timeoutMs) {
+  return new Error(`The model took longer than ${Math.round(timeoutMs / 1000)} seconds to answer, so TD;DW gave up. Thinking models can run long: try a faster model, or turn its reasoning effort down.`);
 }
 
 // maxTokens must leave room for hidden reasoning: thinking models (Gemini 3.x,
 // DeepSeek, Claude w/ extended thinking) bill chain-of-thought against
 // max_tokens BEFORE any visible output. Too small = truncated or empty replies.
-export async function chatCompletion(config, messages, { maxTokens = 8192, temperature = 0.3, effort } = {}) {
+//
+// `config.reasoningEffort` (the TV service sets it; the extension never does) wins
+// over the caller's `effort` and is sent to any endpoint, custom ones included.
+export async function chatCompletion(config, messages, { maxTokens = 8192, temperature = 0.3, effort, timeoutMs = LLM_TIMEOUT_MS } = {}) {
   const baseUrl = (config.baseUrl || '').trim().replace(/\/+$/, '');
   if (!baseUrl) {
     throw new Error('No API base URL configured. Open the extension options.');
@@ -54,7 +67,9 @@ export async function chatCompletion(config, messages, { maxTokens = 8192, tempe
     headers['X-Title'] = 'TD;DW';
   }
 
-  const extraFields = reasoningFields(baseUrl, effort);
+  const extraFields = config.reasoningEffort
+    ? reasoningFields(baseUrl, config.reasoningEffort, { explicit: true })
+    : reasoningFields(baseUrl, effort);
 
   async function post(fields) {
     try {
@@ -67,9 +82,11 @@ export async function chatCompletion(config, messages, { maxTokens = 8192, tempe
           temperature,
           max_tokens: maxTokens,
           ...fields
-        })
+        }),
+        signal: AbortSignal.timeout(timeoutMs)
       });
     } catch (err) {
+      if (err.name === 'TimeoutError') throw timeoutError(timeoutMs);
       throw new Error(`Could not reach ${baseUrl} — check the URL and that the endpoint is running. (${err.message})`);
     }
   }
@@ -88,7 +105,14 @@ export async function chatCompletion(config, messages, { maxTokens = 8192, tempe
     throw new Error(`LLM request failed (${res.status} ${res.statusText}): ${body.slice(0, 300)}`);
   }
 
-  const data = await res.json();
+  // The same signal also covers reading the body, so a timeout can land here too.
+  let data;
+  try {
+    data = await res.json();
+  } catch (err) {
+    if (err.name === 'TimeoutError') throw timeoutError(timeoutMs);
+    throw err;
+  }
   const message = data?.choices?.[0]?.message;
   let text = message?.content;
   if (typeof text !== 'string') {
