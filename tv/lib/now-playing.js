@@ -14,6 +14,9 @@ export class NothingPlayingError extends Error {
   }
 }
 
+// The API key's own pseudo-session has an all-zero UserId (with or without hyphens); it is not a person.
+const hasRealUser = (session) => !!session.UserId && !/^[0-]+$/.test(session.UserId);
+
 function matchesDevice(session, device) {
   if (!device) return true;
   const needle = device.toLowerCase();
@@ -28,7 +31,7 @@ const ticksToSeconds = (ticks) => (Number(ticks) || 0) / TICKS_PER_SECOND;
 
 export async function findNowPlaying(jellyfin, device) {
   const sessions = (await jellyfin.getSessions())
-    .filter((s) => s.UserId && matchesDevice(s, device))
+    .filter((s) => hasRealUser(s) && matchesDevice(s, device))
     .sort((a, b) => lastActive(b) - lastActive(a));
 
   const live = sessions.find((s) => isVideo(s.NowPlayingItem));

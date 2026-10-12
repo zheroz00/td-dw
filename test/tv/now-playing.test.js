@@ -95,3 +95,24 @@ test('findNowPlaying: nothing live and no resume point is a NothingPlayingError'
     /Nothing is playing in Jellyfin on "SHIELD"/
   );
 });
+
+test('findNowPlaying: ignores the API key\'s own pseudo-session', async () => {
+  const sessions = [
+    tv({ NowPlayingItem: undefined, LastActivityDate: '2026-10-12T10:00:00Z' }),
+    {
+      Id: 's-key',
+      UserId: '00000000-0000-0000-0000-000000000000',
+      DeviceName: 'Jellyfin Server',
+      Client: 'td-dw-tv',
+      LastActivityDate: '2026-10-12T11:00:00Z'
+    }
+  ];
+  const jf = fakeJellyfin({
+    sessions,
+    resume: { Id: 'ep2', UserData: { PlaybackPositionTicks: 600 * 1e7 } }
+  });
+  const now = await findNowPlaying(jf, null);
+  assert.equal(now.fromResumePoint, true);
+  assert.equal(now.userId, 'u1');
+  assert.equal(jf.calls[0], 'getResumeItem u1');
+});
