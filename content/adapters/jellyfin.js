@@ -82,22 +82,6 @@ globalThis.TDDW = globalThis.TDDW || { adapters: [] };
     return mine?.NowPlayingItem?.Id || null;
   }
 
-  // Prefer a full-dialogue track in the UI language, then English, then any;
-  // "Forced" subs only cover foreign-language lines, so they rank last.
-  function pickSubtitleStream(streams) {
-    const lang = (navigator.language || 'en').slice(0, 2).toLowerCase();
-    const score = (s) => {
-      let n = 0;
-      const l = (s.Language || '').toLowerCase();
-      if (l.startsWith(lang)) n += 4;
-      else if (l.startsWith('en') || l.startsWith('eng')) n += 2;
-      if (s.IsDefault) n += 1;
-      if (s.IsForced) n -= 3;
-      return n;
-    };
-    return [...streams].sort((a, b) => score(b) - score(a))[0] || null;
-  }
-
   // Cache the last item lookup so getVideoState() and getTranscriptUpTo() (called
   // back-to-back by content.js) don't hit the API twice for the same playback.
   let itemCache = null; // { itemId, item, source }
@@ -183,7 +167,7 @@ globalThis.TDDW = globalThis.TDDW || { adapters: [] };
       const streams = (source?.MediaStreams || item.MediaStreams || []).filter(
         (s) => s.Type === 'Subtitle' && s.IsTextSubtitleStream
       );
-      const stream = pickSubtitleStream(streams);
+      const stream = globalThis.TDDW.pickJellyfinSubtitleStream(streams, navigator.language);
       if (!stream) return null;
 
       const mediaSourceId = source?.Id || itemId;

@@ -1,4 +1,5 @@
-// Jellyfin subtitle parsing. The adapter asks Jellyfin for the subtitle track
+// Jellyfin subtitle helpers: VTT parsing and subtitle-track choice.
+// The adapter asks Jellyfin for the subtitle track
 // as WebVTT (Stream.vtt) — the cleanest timestamped text format the server can
 // serve for any text-based subtitle stream (SRT/ASS/embedded mov_text alike).
 // Attaches to the shared namespace like the other content-script files; the
@@ -72,5 +73,62 @@ globalThis.TDDW = globalThis.TDDW || { adapters: [] };
     }
 
     return lines.length ? { lines, language: language || 'unknown' } : null;
+  };
+
+  // Jellyfin reports 3-letter ISO 639-2 codes, which often don't share a prefix
+  // with the 2-letter code (es/spa, fr/fre, de/ger, ja/jpn). Where 639-2 has
+  // both a bibliographic and a terminologic form, both are listed.
+  const ISO_639_2 = {
+    bg: ['bul'],
+    bn: ['ben'],
+    bo: ['bod', 'tib'],
+    cs: ['ces', 'cze'],
+    cy: ['cym', 'wel'],
+    de: ['deu', 'ger'],
+    el: ['ell', 'gre'],
+    es: ['spa'],
+    et: ['est'],
+    eu: ['eus', 'baq'],
+    fa: ['fas', 'per'],
+    fr: ['fra', 'fre'],
+    hy: ['hye', 'arm'],
+    id: ['ind'],
+    is: ['isl', 'ice'],
+    ja: ['jpn'],
+    ka: ['kat', 'geo'],
+    lv: ['lav'],
+    mk: ['mkd', 'mac'],
+    ms: ['msa', 'may'],
+    my: ['mya', 'bur'],
+    nl: ['nld', 'dut'],
+    pl: ['pol'],
+    pt: ['por'],
+    ro: ['ron', 'rum'],
+    sk: ['slk', 'slo'],
+    sq: ['sqi', 'alb'],
+    sv: ['swe'],
+    tr: ['tur'],
+    zh: ['zho', 'chi']
+  };
+
+  // Prefer a full-dialogue track in the preferred language, then English, then
+  // any; "Forced" subs only cover foreign-language lines, so they rank last.
+  // `lang` is a 2-letter code ("en"). A track matches it by prefix (en/eng,
+  // it/ita) or through the ISO_639_2 table (es/spa). Callers pass text streams
+  // only. Shared by the Jellyfin adapter (browser language) and the TV service
+  // (SUBTITLE_LANG).
+  globalThis.TDDW.pickJellyfinSubtitleStream = function (streams, lang) {
+    const want = (lang || 'en').slice(0, 2).toLowerCase();
+    const wantCodes = ISO_639_2[want] || [];
+    const score = (s) => {
+      let n = 0;
+      const l = (s.Language || '').toLowerCase();
+      if (l.startsWith(want) || wantCodes.includes(l)) n += 4;
+      else if (l.startsWith('en')) n += 2;
+      if (s.IsDefault) n += 1;
+      if (s.IsForced) n -= 3;
+      return n;
+    };
+    return [...(streams || [])].sort((a, b) => score(b) - score(a))[0] || null;
   };
 })();
