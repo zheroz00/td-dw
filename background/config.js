@@ -3,7 +3,9 @@
 
 export const DEFAULTS = {
   baseUrl: 'https://openrouter.ai/api/v1',
-  apiKey: '',
+  // Keys are stored per endpoint (see endpointKey) so switching providers keeps
+  // each one. getConfig() derives `apiKey` for the active baseUrl from this map.
+  apiKeys: {},
   // Verified live against OpenRouter's /models and Google's model docs on
   // 2026-09-05: current stable Flash, 1M context. Existing users keep whatever
   // model they already have stored — getConfig() merges stored over defaults.
@@ -24,15 +26,39 @@ export const TRANSCRIPT_BUDGET_CHARS = { standard: 400000, local: 60000 };
 
 const STORAGE_KEY = 'catchMeUpConfig';
 
-export async function getConfig() {
-  const stored = await chrome.storage.local.get(STORAGE_KEY);
-  return { ...DEFAULTS, ...(stored[STORAGE_KEY] || {}) };
+// The map key for an endpoint's API key: the baseUrl without surrounding
+// whitespace or trailing slashes, so "…/v1" and "…/v1/" share a key. Custom
+// endpoints (Mistral, a local server) get their own slot just like presets.
+export function endpointKey(url = '') {
+  return url.trim().replace(/\/+$/, '');
 }
 
+export async function getConfig() {
+  const stored = (await chrome.storage.local.get(STORAGE_KEY))[STORAGE_KEY] || {};
+  // v0.2.1 and earlier stored a single top-level apiKey. Adopt it for the
+  // endpoint it was saved alongside; the next save drops the old field.
+  const { apiKey: legacyKey, ...rest } = stored;
+  const config = { ...DEFAULTS, ...rest };
+  const apiKeys = { ...config.apiKeys };
+  const active = endpointKey(config.baseUrl);
+  if (legacyKey && !(active in apiKeys)) apiKeys[active] = legacyKey;
+  return { ...config, apiKeys, apiKey: apiKeys[active] || '' };
+}
+
+// `partial.apiKey`, when present, is the key for the endpoint being saved
+// (partial.baseUrl, or the stored one). `partial.apiKeys` replaces the whole
+// map. Empty keys are dropped rather than stored.
 export async function saveConfig(partial) {
-  const next = { ...(await getConfig()), ...partial };
-  await chrome.storage.local.set({ [STORAGE_KEY]: next });
-  return next;
+  const { apiKey, ...rest } = partial;
+  const { apiKey: _derived, ...next } = { ...(await getConfig()), ...rest };
+  const apiKeys = { ...next.apiKeys };
+  if (apiKey !== undefined) apiKeys[endpointKey(next.baseUrl)] = apiKey;
+  for (const [endpoint, key] of Object.entries(apiKeys)) {
+    if (!endpoint || !key) delete apiKeys[endpoint];
+  }
+  const toStore = { ...next, apiKeys };
+  await chrome.storage.local.set({ [STORAGE_KEY]: toStore });
+  return { ...toStore, apiKey: apiKeys[endpointKey(toStore.baseUrl)] || '' };
 }
 
 // Infers which provider preset a baseUrl matches, for the options UI dropdown

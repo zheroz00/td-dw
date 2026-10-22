@@ -1,6 +1,6 @@
 // Options page is an extension page, so it can use ES modules and share
 // config.js with the service worker.
-import { getConfig, saveConfig, providerFromUrl } from '../background/config.js';
+import { getConfig, saveConfig, providerFromUrl, endpointKey } from '../background/config.js';
 
 const $ = (id) => document.getElementById(id);
 const status = $('status');
@@ -14,6 +14,20 @@ const PRESETS = {
   openrouter: { url: 'https://openrouter.ai/api/v1', model: 'google/gemini-3.8-flash' },
   gemini: { url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-3.8-flash' }
 };
+
+// Keys per endpoint, seeded from storage and updated as the user switches
+// endpoints, so a key typed but not yet saved survives switching away and back.
+// Save writes the whole map. shownEndpoint is whose key the field holds now.
+let keys = {};
+let shownEndpoint = '';
+
+function swapKeyForEndpoint() {
+  const next = endpointKey($('baseUrl').value);
+  if (next === shownEndpoint) return;
+  keys[shownEndpoint] = $('apiKey').value.trim();
+  $('apiKey').value = keys[next] || '';
+  shownEndpoint = next;
+}
 
 function setStatus(text, kind = '') {
   status.textContent = text;
@@ -38,6 +52,8 @@ async function load() {
   const config = await getConfig();
   $('baseUrl').value = config.baseUrl;
   $('apiKey').value = config.apiKey;
+  keys = { ...config.apiKeys };
+  shownEndpoint = endpointKey(config.baseUrl);
   $('model').value = config.model;
   $('summaryLength').value = config.summaryLength;
   $('recapProvider').value = config.recapProvider;
@@ -48,14 +64,18 @@ async function load() {
   $('provider').value = providerFromUrl(config.baseUrl);
 }
 
-// Switching provider fills the endpoint + a matching default model; "custom"
-// leaves the fields alone for manual entry.
+// Switching provider fills the endpoint + a matching default model and swaps
+// in that endpoint's key; "custom" leaves the fields alone for manual entry.
 $('provider').addEventListener('change', () => {
   const preset = PRESETS[$('provider').value];
   if (!preset) return;
   $('baseUrl').value = preset.url;
   $('model').value = preset.model;
+  swapKeyForEndpoint();
 });
+
+// Editing the URL by hand (a custom endpoint) swaps keys the same way.
+$('baseUrl').addEventListener('change', swapKeyForEndpoint);
 
 // Non-OpenRouter endpoints (and the Jellyfin server) need a host permission.
 // Match patterns can't carry a port, so a pattern like "http://myserver/*"
@@ -91,7 +111,8 @@ $('save').addEventListener('click', async () => {
     // One request covering the endpoint and (if set) the Jellyfin origin, so
     // the adapter can be injected on the user's own server.
     await ensureHostPermissions(values.baseUrl, values.jellyfinUrl);
-    await saveConfig(values);
+    keys[shownEndpoint] = values.apiKey;
+    await saveConfig({ ...values, apiKeys: keys });
     // (Re)register or tear down the Jellyfin content scripts to match the URL.
     const sync = await chrome.runtime.sendMessage({ type: 'SYNC_JELLYFIN_SCRIPTS' });
     if (sync && !sync.ok) throw new Error(sync.error || 'Could not register the Jellyfin adapter.');
