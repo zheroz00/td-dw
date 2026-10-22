@@ -15,17 +15,23 @@ const PRESETS = {
   gemini: { url: 'https://generativelanguage.googleapis.com/v1beta/openai', model: 'gemini-3.8-flash' }
 };
 
-// Keys per endpoint, seeded from storage and updated as the user switches
-// endpoints, so a key typed but not yet saved survives switching away and back.
-// Save writes the whole map. shownEndpoint is whose key the field holds now.
-let keys = {};
+// Key and model per endpoint, seeded from storage and updated as the user
+// switches endpoints, so values typed but not yet saved survive switching away
+// and back. Save writes the whole map. shownEndpoint is whose values the key
+// and model fields hold now.
+let endpoints = {};
 let shownEndpoint = '';
 
-function swapKeyForEndpoint() {
+// Stashes the shown endpoint's key and model, then fills in the ones saved for
+// the endpoint now in the URL field. An endpoint with no saved model gets
+// `fallbackModel` (a preset's default), or keeps the field as it is.
+function swapToEndpoint(fallbackModel) {
   const next = endpointKey($('baseUrl').value);
   if (next === shownEndpoint) return;
-  keys[shownEndpoint] = $('apiKey').value.trim();
-  $('apiKey').value = keys[next] || '';
+  endpoints[shownEndpoint] = { apiKey: $('apiKey').value.trim(), model: $('model').value.trim() };
+  const saved = endpoints[next] || {};
+  $('apiKey').value = saved.apiKey || '';
+  $('model').value = saved.model || fallbackModel || $('model').value;
   shownEndpoint = next;
 }
 
@@ -52,7 +58,7 @@ async function load() {
   const config = await getConfig();
   $('baseUrl').value = config.baseUrl;
   $('apiKey').value = config.apiKey;
-  keys = { ...config.apiKeys };
+  endpoints = structuredClone(config.endpoints);
   shownEndpoint = endpointKey(config.baseUrl);
   $('model').value = config.model;
   $('summaryLength').value = config.summaryLength;
@@ -64,18 +70,18 @@ async function load() {
   $('provider').value = providerFromUrl(config.baseUrl);
 }
 
-// Switching provider fills the endpoint + a matching default model and swaps
-// in that endpoint's key; "custom" leaves the fields alone for manual entry.
+// Switching provider fills the endpoint and swaps in its saved key and model,
+// or the preset's default model the first time; "custom" leaves the fields
+// alone for manual entry.
 $('provider').addEventListener('change', () => {
   const preset = PRESETS[$('provider').value];
   if (!preset) return;
   $('baseUrl').value = preset.url;
-  $('model').value = preset.model;
-  swapKeyForEndpoint();
+  swapToEndpoint(preset.model);
 });
 
-// Editing the URL by hand (a custom endpoint) swaps keys the same way.
-$('baseUrl').addEventListener('change', swapKeyForEndpoint);
+// Editing the URL by hand (a custom endpoint) swaps the same way.
+$('baseUrl').addEventListener('change', () => swapToEndpoint());
 
 // Non-OpenRouter endpoints (and the Jellyfin server) need a host permission.
 // Match patterns can't carry a port, so a pattern like "http://myserver/*"
@@ -111,8 +117,8 @@ $('save').addEventListener('click', async () => {
     // One request covering the endpoint and (if set) the Jellyfin origin, so
     // the adapter can be injected on the user's own server.
     await ensureHostPermissions(values.baseUrl, values.jellyfinUrl);
-    keys[shownEndpoint] = values.apiKey;
-    await saveConfig({ ...values, apiKeys: keys });
+    endpoints[shownEndpoint] = { apiKey: values.apiKey, model: values.model };
+    await saveConfig({ ...values, endpoints });
     // (Re)register or tear down the Jellyfin content scripts to match the URL.
     const sync = await chrome.runtime.sendMessage({ type: 'SYNC_JELLYFIN_SCRIPTS' });
     if (sync && !sync.ok) throw new Error(sync.error || 'Could not register the Jellyfin adapter.');
