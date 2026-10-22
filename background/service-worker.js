@@ -1,4 +1,4 @@
-import { getConfig } from './config.js';
+import { getConfig, endpointLabel } from './config.js';
 import { pickProvider } from './providers/index.js';
 import { buildQuestionMessages } from './providers/prompts.js';
 import { chatCompletion } from './llm-client.js';
@@ -152,7 +152,11 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     (async () => {
       const config = await getConfig();
       const provider = pickProvider(msg.videoState, config);
-      sendResponse(await provider.getRecap(msg.videoState, config));
+      const { servedModel, ...result } = await provider.getRecap(msg.videoState, config);
+      // Which endpoint and model produced this, so the overlay can show it.
+      // Errors carry it too: "which model failed" is half the diagnosis.
+      result.llm = { endpoint: endpointLabel(config.baseUrl), model: config.model, servedModel };
+      sendResponse(result);
     })().catch((err) => sendResponse({ ok: false, error: err.message }));
     return true; // async sendResponse
   }

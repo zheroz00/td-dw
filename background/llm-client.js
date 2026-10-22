@@ -20,7 +20,15 @@ export function reasoningFields(baseUrl, effort) {
 // maxTokens must leave room for hidden reasoning: thinking models (Gemini 3.x,
 // DeepSeek, Claude w/ extended thinking) bill chain-of-thought against
 // max_tokens BEFORE any visible output. Too small = truncated or empty replies.
-export async function chatCompletion(config, messages, { maxTokens = 8192, temperature = 0.3, effort } = {}) {
+export async function chatCompletion(config, messages, options) {
+  return (await chatCompletionDetailed(config, messages, options)).text;
+}
+
+// Same call, plus the model that actually answered: OpenAI-compatible replies
+// name it in `model`, which differs from the requested one when a router
+// (openrouter/free, openrouter/auto) picked it. Falls back to the requested
+// model for servers that leave the field out.
+export async function chatCompletionDetailed(config, messages, { maxTokens = 8192, temperature = 0.3, effort } = {}) {
   const baseUrl = (config.baseUrl || '').trim().replace(/\/+$/, '');
   if (!baseUrl) {
     throw new Error('No API base URL configured. Open the extension options.');
@@ -105,5 +113,5 @@ export async function chatCompletion(config, messages, { maxTokens = 8192, tempe
     }
     throw new Error('LLM response contained no message content.');
   }
-  return text;
+  return { text, model: typeof data?.model === 'string' && data.model ? data.model : config.model };
 }

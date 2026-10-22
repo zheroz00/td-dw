@@ -1,4 +1,4 @@
-import { chatCompletion } from '../llm-client.js';
+import { chatCompletionDetailed } from '../llm-client.js';
 import { buildTranscriptMessages } from './prompts.js';
 
 // v2 provider: summarizes the actual caption track up to the timestamp.
@@ -13,12 +13,14 @@ export const transcriptProvider = {
       return { ok: false, error: 'No transcript available for this video.' };
     }
     try {
-      const text = await chatCompletion(config, buildTranscriptMessages(videoState, config), { temperature: 0, effort: 'low' });
+      const { text, model: servedModel } = await chatCompletionDetailed(
+        config, buildTranscriptMessages(videoState, config), { temperature: 0, effort: 'low' }
+      );
       // 'transcript' = grounded in the actual caption/subtitle text, not the
       // model's memory. The overlay badges this as trustworthy. 'captions' is
       // the same, but only for the window captured live (hybrid's fallback).
       const source = videoState.transcript.partial ? 'captions' : 'transcript';
-      return { ok: true, known: true, recapText: text, source };
+      return { ok: true, known: true, recapText: text, source, servedModel };
     } catch (err) {
       return { ok: false, error: err.message };
     }

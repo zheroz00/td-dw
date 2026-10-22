@@ -272,7 +272,21 @@ globalThis.TDDW.overlay = (() => {
     return badge;
   }
 
-  function showRecap(recapText, videoState, source) {
+  // Muted "Endpoint · model" line naming what produced this result. When a
+  // router picked the model (openrouter/free), show what actually answered and
+  // name the router; a served id that merely adds a version suffix or prefix
+  // to the requested one counts as the same model.
+  function renderModelLine(llm) {
+    if (!llm?.model) return null;
+    const served = llm.servedModel || llm.model;
+    const routed = !served.includes(llm.model);
+    const line = document.createElement('div');
+    line.className = 'cmu-model';
+    line.textContent = `${llm.endpoint} · ${routed ? `${served} (picked by ${llm.model})` : llm.model}`;
+    return line;
+  }
+
+  function showRecap(recapText, videoState, source, llm) {
     setContext(videoState);
     const lines = recapText
       .split('\n')
@@ -284,6 +298,8 @@ globalThis.TDDW.overlay = (() => {
     els.body.innerHTML = '';
     const badge = renderSourceBadge(source, videoState);
     if (badge) els.body.appendChild(badge);
+    const modelLine = renderModelLine(llm);
+    if (modelLine) els.body.appendChild(modelLine);
     const ul = document.createElement('ul');
     ul.className = 'cmu-list';
     lines.forEach((line, i) => ul.appendChild(renderItem(line, i)));
@@ -362,9 +378,11 @@ globalThis.TDDW.overlay = (() => {
     els.askSend.disabled = state;
   }
 
-  function showUnknown(message, videoState) {
+  function showUnknown(message, videoState, llm) {
     setContext(videoState);
     els.body.innerHTML = '';
+    const modelLine = renderModelLine(llm);
+    if (modelLine) els.body.appendChild(modelLine);
     const p = document.createElement('p');
     p.className = 'cmu-muted';
     p.textContent = message;
@@ -372,9 +390,11 @@ globalThis.TDDW.overlay = (() => {
     show();
   }
 
-  function showError(message, videoState) {
+  function showError(message, videoState, llm) {
     setContext(videoState);
     els.body.innerHTML = '';
+    const modelLine = renderModelLine(llm);
+    if (modelLine) els.body.appendChild(modelLine);
     const p = document.createElement('p');
     p.className = 'cmu-error';
     p.textContent = message;

@@ -1,4 +1,4 @@
-import { chatCompletion } from '../llm-client.js';
+import { chatCompletionDetailed } from '../llm-client.js';
 import { buildHybridMessages, isNoKnowledge } from './prompts.js';
 import { transcriptProvider } from './transcript-provider.js';
 
@@ -22,14 +22,14 @@ export const hybridProvider = {
       return { ok: false, error: 'No captured captions for this video.' };
     }
     try {
-      const text = await chatCompletion(config, buildHybridMessages(videoState, config), {
+      const { text, model: servedModel } = await chatCompletionDetailed(config, buildHybridMessages(videoState, config), {
         temperature: 0,
         effort: 'medium'
       });
       if (isNoKnowledge(text)) {
         return transcriptProvider.getRecap(videoState, config);
       }
-      return { ok: true, known: true, recapText: text, source: 'hybrid' };
+      return { ok: true, known: true, recapText: text, source: 'hybrid', servedModel };
     } catch (err) {
       return { ok: false, error: err.message };
     }
