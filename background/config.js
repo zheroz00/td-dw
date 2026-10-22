@@ -3,12 +3,13 @@
 
 export const DEFAULTS = {
   baseUrl: 'https://openrouter.ai/api/v1',
-  // Keys are stored per endpoint (see endpointKey) so switching providers keeps
-  // each one. getConfig() derives `apiKey` for the active baseUrl from this map.
-  apiKeys: {},
-  // Verified live against OpenRouter's /models and Google's model docs on
-  // 2026-09-05: current stable Flash, 1M context. Existing users keep whatever
-  // model they already have stored — getConfig() merges stored over defaults.
+  // Per-endpoint settings, { [endpointKey]: { apiKey, model } }, so switching
+  // providers keeps each one's key and model. getConfig() derives the active
+  // `apiKey` and `model` from the entry for the current baseUrl.
+  endpoints: {},
+  // Model for an endpoint with none saved yet. Verified live against
+  // OpenRouter's /models and Google's model docs on 2026-09-05: current stable
+  // Flash, 1M context.
   model: 'google/gemini-3.8-flash',
   summaryLength: 'medium', // short | medium | detailed
   pauseOnOpen: true,
@@ -26,39 +27,65 @@ export const TRANSCRIPT_BUDGET_CHARS = { standard: 400000, local: 60000 };
 
 const STORAGE_KEY = 'catchMeUpConfig';
 
-// The map key for an endpoint's API key: the baseUrl without surrounding
-// whitespace or trailing slashes, so "…/v1" and "…/v1/" share a key. Custom
-// endpoints (Mistral, a local server) get their own slot just like presets.
+// The map key for an endpoint's settings: the baseUrl without surrounding
+// whitespace or trailing slashes, so "…/v1" and "…/v1/" share an entry. Custom
+// endpoints (Mistral, a local server) get their own entry just like presets.
 export function endpointKey(url = '') {
   return url.trim().replace(/\/+$/, '');
 }
 
-export async function getConfig() {
-  const stored = (await chrome.storage.local.get(STORAGE_KEY))[STORAGE_KEY] || {};
-  // v0.2.1 and earlier stored a single top-level apiKey. Adopt it for the
-  // endpoint it was saved alongside; the next save drops the old field.
-  const { apiKey: legacyKey, ...rest } = stored;
-  const config = { ...DEFAULTS, ...rest };
-  const apiKeys = { ...config.apiKeys };
-  const active = endpointKey(config.baseUrl);
-  if (legacyKey && !(active in apiKeys)) apiKeys[active] = legacyKey;
-  return { ...config, apiKeys, apiKey: apiKeys[active] || '' };
+// The flat config every caller reads: the stored settings plus `apiKey` and
+// `model` for the active endpoint.
+function withActiveEndpoint(config) {
+  const entry = config.endpoints[endpointKey(config.baseUrl)] || {};
+  return { ...config, apiKey: entry.apiKey || '', model: entry.model || DEFAULTS.model };
 }
 
-// `partial.apiKey`, when present, is the key for the endpoint being saved
-// (partial.baseUrl, or the stored one). `partial.apiKeys` replaces the whole
-// map. Empty keys are dropped rather than stored.
-export async function saveConfig(partial) {
-  const { apiKey, ...rest } = partial;
-  const { apiKey: _derived, ...next } = { ...(await getConfig()), ...rest };
-  const apiKeys = { ...next.apiKeys };
-  if (apiKey !== undefined) apiKeys[endpointKey(next.baseUrl)] = apiKey;
-  for (const [endpoint, key] of Object.entries(apiKeys)) {
-    if (!endpoint || !key) delete apiKeys[endpoint];
+export async function getConfig() {
+  const stored = (await chrome.storage.local.get(STORAGE_KEY))[STORAGE_KEY] || {};
+  // Older formats: v0.2.1 and earlier kept one top-level apiKey and model;
+  // pre-release builds kept an apiKeys map of keys only. Fold both into
+  // `endpoints` without overriding anything already there. The next save
+  // drops the old fields.
+  const { apiKey: legacyKey, model: legacyModel, apiKeys: legacyKeys, ...rest } = stored;
+  const config = { ...DEFAULTS, ...rest };
+  const endpoints = {};
+  for (const [endpoint, apiKey] of Object.entries(legacyKeys || {})) endpoints[endpoint] = { apiKey };
+  for (const [endpoint, entry] of Object.entries(config.endpoints)) {
+    endpoints[endpoint] = { ...endpoints[endpoint], ...entry };
   }
-  const toStore = { ...next, apiKeys };
+  const active = endpointKey(config.baseUrl);
+  const entry = { ...endpoints[active] };
+  if (legacyKey && entry.apiKey === undefined) entry.apiKey = legacyKey;
+  if (legacyModel && entry.model === undefined) entry.model = legacyModel;
+  if (Object.keys(entry).length) endpoints[active] = entry;
+  return withActiveEndpoint({ ...config, endpoints });
+}
+
+// `partial.apiKey` / `partial.model`, when present, belong to the endpoint
+// being saved (partial.baseUrl, or the stored one). `partial.endpoints`
+// replaces the whole map. Empty values and entries are dropped, not stored.
+export async function saveConfig(partial) {
+  const { apiKey, model, endpoints: replacement, ...rest } = partial;
+  const current = await getConfig();
+  const { apiKey: _key, model: _model, ...next } = { ...current, ...rest };
+  const active = endpointKey(next.baseUrl);
+  const endpoints = {};
+  for (const [endpoint, entry] of Object.entries(replacement || current.endpoints)) {
+    endpoints[endpoint] = { ...entry };
+  }
+  if (apiKey !== undefined || model !== undefined) {
+    endpoints[active] = { ...endpoints[active] };
+    if (apiKey !== undefined) endpoints[active].apiKey = apiKey;
+    if (model !== undefined) endpoints[active].model = model;
+  }
+  for (const [endpoint, entry] of Object.entries(endpoints)) {
+    for (const field of Object.keys(entry)) if (!entry[field]) delete entry[field];
+    if (!endpoint || !Object.keys(entry).length) delete endpoints[endpoint];
+  }
+  const toStore = { ...next, endpoints };
   await chrome.storage.local.set({ [STORAGE_KEY]: toStore });
-  return { ...toStore, apiKey: apiKeys[endpointKey(toStore.baseUrl)] || '' };
+  return withActiveEndpoint(toStore);
 }
 
 // Infers which provider preset a baseUrl matches, for the options UI dropdown
