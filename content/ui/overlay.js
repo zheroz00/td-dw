@@ -227,6 +227,9 @@ globalThis.TDDW.overlay = (() => {
     // tab loaded. The label carries the coverage start so the reader knows
     // which part is grounded.
     hybrid: { cls: 'cmu-src-hybrid', icon: '🧠✓', label: 'From memory, anchored by subtitles' },
+    // Hybrid's fallback when the model doesn't know the title: grounded, but
+    // only for the window the captions covered.
+    captions: { cls: 'cmu-src-grounded', icon: '✓', label: 'Built from the subtitles seen so far' },
     knowledge: { cls: 'cmu-src-memory', icon: '🧠', label: 'From the model’s memory, may be imperfect' }
   };
 
@@ -237,6 +240,12 @@ globalThis.TDDW.overlay = (() => {
       // A transcript that had to be sampled down to fit the budget is still
       // grounded, just incomplete: say so rather than implying full coverage.
       return transcript?.truncated ? `${base} (sampled to fit)` : base;
+    }
+    if (source === 'captions') {
+      // Captured from (nearly) the start = the whole story so far, no gap to warn about.
+      const start = transcript?.coverageStartSeconds;
+      if (!Number.isFinite(start) || start < 60) return base;
+      return `${base} (from ${formatTime(start)} on). The model doesn't know this title, so nothing earlier is covered.`;
     }
     if (source === 'hybrid') {
       const from = Number.isFinite(transcript?.coverageStartSeconds)

@@ -1,5 +1,6 @@
 import { chatCompletion } from '../llm-client.js';
-import { buildHybridMessages, isNoKnowledge, stripNoKnowledge } from './prompts.js';
+import { buildHybridMessages, isNoKnowledge } from './prompts.js';
+import { transcriptProvider } from './transcript-provider.js';
 
 // v3 provider: the DRM streaming sites (Netflix, Prime Video, Disney+) never
 // hand over a subtitle file, but caption-capture.js collects the cues shown on
@@ -8,6 +9,10 @@ import { buildHybridMessages, isNoKnowledge, stripNoKnowledge } from './prompts.
 // recaps from its own knowledge and uses the captured dialogue to pin down
 // exactly where the viewer is in the story. Shares the provider result shape
 // (see knowledge-provider.js); source 'hybrid' gets its own badge.
+//
+// When the model doesn't recognise the title, the captured dialogue is still
+// real: fall back to recapping just that window with the transcript engine
+// (source 'captions'), so an unknown show still gets a grounded partial recap.
 
 export const hybridProvider = {
   name: 'hybrid',
@@ -22,12 +27,7 @@ export const hybridProvider = {
         effort: 'medium'
       });
       if (isNoKnowledge(text)) {
-        return {
-          ok: true,
-          known: false,
-          message: stripNoKnowledge(text) ||
-            `The model doesn't know "${videoState.title}" well enough for a reliable recap, even with the captions it was shown.`
-        };
+        return transcriptProvider.getRecap(videoState, config);
       }
       return { ok: true, known: true, recapText: text, source: 'hybrid' };
     } catch (err) {

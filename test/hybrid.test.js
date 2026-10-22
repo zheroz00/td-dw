@@ -43,3 +43,56 @@ test('pickProvider honours forced sources, except a partial transcript can only 
   assert.equal(pickProvider(full, { recapProvider: 'transcript' }).name, 'transcript');
   assert.equal(pickProvider({ ...partial, transcript: null }, { recapProvider: 'transcript' }).name, 'transcript');
 });
+
+test('buildTranscriptMessages describes a partial transcript as a window, not the start', async () => {
+  const { buildTranscriptMessages } = await import('../background/providers/prompts.js');
+  const [system, user] = buildTranscriptMessages(partial, { summaryLength: 'medium' });
+  assert.match(system.content, /shown on screen from 12:30 to 25:00; nothing before 12:30 was captured/);
+  assert.match(system.content, /guess at what happened before 12:30/);
+  assert.doesNotMatch(system.content, /from the start up to/);
+  assert.match(user.content, /from 12:30 to 25:00/);
+
+  const full = { ...partial, transcript: { text: 'x', partial: false } };
+  const [fullSystem] = buildTranscriptMessages(full, {});
+  assert.match(fullSystem.content, /from the start up to 25:00/);
+});
+
+// --- hybrid fallback (fetch stubbed: one canned reply per LLM call) ----------
+
+const config = { baseUrl: 'http://localhost:11434/v1', model: 'test', summaryLength: 'medium' };
+
+function stubReplies(...replies) {
+  const calls = [];
+  globalThis.fetch = async (url, init) => {
+    calls.push(JSON.parse(init.body));
+    const content = replies.shift();
+    if (content instanceof Error) throw content;
+    return new Response(JSON.stringify({ choices: [{ message: { content } }] }), { status: 200 });
+  };
+  return calls;
+}
+
+test('hybrid returns a memory recap when the model knows the title', async () => {
+  const { hybridProvider } = await import('../background/providers/hybrid-provider.js');
+  const calls = stubReplies('- Something happened');
+  const result = await hybridProvider.getRecap(partial, config);
+  assert.deepEqual(result, { ok: true, known: true, recapText: '- Something happened', source: 'hybrid' });
+  assert.equal(calls.length, 1);
+});
+
+test('hybrid falls back to a captions-only recap when the model does not know the title', async () => {
+  const { hybridProvider } = await import('../background/providers/hybrid-provider.js');
+  const calls = stubReplies('NO_KNOWLEDGE\nI do not know this show.', '- [12:30] Someone says hello');
+  const result = await hybridProvider.getRecap(partial, config);
+  assert.deepEqual(result, { ok: true, known: true, recapText: '- [12:30] Someone says hello', source: 'captions' });
+  assert.equal(calls.length, 2);
+  assert.match(calls[1].messages[0].content, /nothing before 12:30 was captured/);
+});
+
+test('a failed fallback call surfaces its error', async () => {
+  const { hybridProvider } = await import('../background/providers/hybrid-provider.js');
+  stubReplies('NO_KNOWLEDGE', new Error('offline'));
+  const result = await hybridProvider.getRecap(partial, config);
+  assert.equal(result.ok, false);
+  assert.match(result.error, /Could not reach/);
+});

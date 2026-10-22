@@ -15,8 +15,10 @@ export const transcriptProvider = {
     try {
       const text = await chatCompletion(config, buildTranscriptMessages(videoState, config), { temperature: 0, effort: 'low' });
       // 'transcript' = grounded in the actual caption/subtitle text, not the
-      // model's memory. The overlay badges this as trustworthy.
-      return { ok: true, known: true, recapText: text, source: 'transcript' };
+      // model's memory. The overlay badges this as trustworthy. 'captions' is
+      // the same, but only for the window captured live (hybrid's fallback).
+      const source = videoState.transcript.partial ? 'captions' : 'transcript';
+      return { ok: true, known: true, recapText: text, source };
     } catch (err) {
       return { ok: false, error: err.message };
     }
