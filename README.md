@@ -48,6 +48,8 @@ that out loud.
   sees from the moment the tab loads. It can't recap from those alone (it only has what you've
   watched in this tab), so it uses them to pin down exactly where you are in the story, which is
   the thing memory-only recaps get wrong, and grounds the most recent bullets in real dialogue.
+  If the model doesn't know the show at all, TD;DW recaps just the lines it collected instead,
+  and the green badge says which stretch that covers ("from 12:30 on").
   Subtitles off means memory only, and the badge says so. A very long transcript gets sampled down to fit the configured
   budget rather than sent whole, and when that happens the badge adds "(sampled to fit)" so you
   know the recap is grounded but not complete. Tune how much subtitle text gets sent with the
@@ -226,7 +228,8 @@ on OpenRouter requests, which OpenRouter uses for app attribution; it says nothi
   same-origin iframes.
 - `background/providers/`: recap engines behind `pickProvider()`. It picks **transcript** when the
   adapter supplied a full caption/subtitle track, **hybrid** when it supplied a partial one captured
-  live off a DRM player, and **knowledge** otherwise. Each result carries a `source`
+  live off a DRM player, and **knowledge** otherwise. When hybrid's model doesn't recognise the
+  title, it hands the captured window to the transcript engine (source `captions`). Each result carries a `source`
   field the overlay renders as the provenance badge. Follow-up questions run through
   `buildQuestionMessages` in the same folder, reusing the recap (and transcript, when present) as
   context. Adding an engine is one file plus one registry line.
