@@ -4,6 +4,16 @@
   const CMU = globalThis.TDDW;
   console.log('[TD;DW] content script loaded');
 
+  // Reloading or updating the extension orphans the content scripts already
+  // running in open tabs; Chrome then rejects every message with "Extension
+  // context invalidated". Settings changes never cause this, only a reload.
+  function extensionErrorMessage(err) {
+    if (/context invalidated/i.test(err?.message || '')) {
+      return 'TD;DW was reloaded or updated since this page opened. Refresh the page to reconnect.';
+    }
+    return `Extension error: ${err?.message}`;
+  }
+
   async function getPauseOnOpen() {
     try {
       const { catchMeUpConfig } = await chrome.storage.local.get('catchMeUpConfig');
@@ -86,17 +96,17 @@
     try {
       result = await chrome.runtime.sendMessage({ type: 'GET_RECAP', videoState: state });
     } catch (err) {
-      result = { ok: false, error: `Extension error: ${err.message}` };
+      result = { ok: false, error: extensionErrorMessage(err) };
     }
 
     if (!result) {
       overlay.showError('No response from the extension — try reloading it in chrome://extensions.', state);
     } else if (!result.ok) {
-      overlay.showError(result.error, state);
+      overlay.showError(result.error, state, result.llm);
     } else if (!result.known) {
-      overlay.showUnknown(result.message, state);
+      overlay.showUnknown(result.message, state, result.llm);
     } else {
-      overlay.showRecap(result.recapText, state, result.source);
+      overlay.showRecap(result.recapText, state, result.source, result.llm);
       // Retain context so follow-up questions can reuse the same transcript /
       // title grounding.
       convo.state = state;
@@ -145,7 +155,7 @@
       // belongs to a dead conversation — drop it silently instead of showing an
       // error / restoring the question into the new panel.
       if (epoch !== convo.epoch) throw new StaleAnswerError();
-      throw new Error(`Extension error: ${err.message}`);
+      throw new Error(extensionErrorMessage(err));
     }
     if (epoch !== convo.epoch) {
       // Recap was refreshed out from under this question; drop it silently so

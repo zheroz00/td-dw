@@ -205,6 +205,14 @@ globalThis.TDDW.overlayCss = `
     border-color: rgba(197, 217, 139, 0.30);
   }
 
+  /* Which endpoint and model produced the result */
+  .cmu-model {
+    font-size: 11px;
+    color: #9aa0a6;
+    margin: -6px 0 12px 2px;
+    overflow-wrap: anywhere;
+  }
+
   .cmu-muted { color: #9aa0a6; }
   .cmu-error { color: #f28b82; }
   .cmu-link {

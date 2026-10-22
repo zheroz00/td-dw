@@ -76,7 +76,7 @@ test('hybrid returns a memory recap when the model knows the title', async () =>
   const { hybridProvider } = await import('../background/providers/hybrid-provider.js');
   const calls = stubReplies('- Something happened');
   const result = await hybridProvider.getRecap(partial, config);
-  assert.deepEqual(result, { ok: true, known: true, recapText: '- Something happened', source: 'hybrid' });
+  assert.deepEqual(result, { ok: true, known: true, recapText: '- Something happened', source: 'hybrid', servedModel: 'test' });
   assert.equal(calls.length, 1);
 });
 
@@ -84,7 +84,7 @@ test('hybrid falls back to a captions-only recap when the model does not know th
   const { hybridProvider } = await import('../background/providers/hybrid-provider.js');
   const calls = stubReplies('NO_KNOWLEDGE\nI do not know this show.', '- [12:30] Someone says hello');
   const result = await hybridProvider.getRecap(partial, config);
-  assert.deepEqual(result, { ok: true, known: true, recapText: '- [12:30] Someone says hello', source: 'captions' });
+  assert.deepEqual(result, { ok: true, known: true, recapText: '- [12:30] Someone says hello', source: 'captions', servedModel: 'test' });
   assert.equal(calls.length, 2);
   assert.match(calls[1].messages[0].content, /nothing before 12:30 was captured/);
 });

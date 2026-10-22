@@ -96,3 +96,16 @@ export function providerFromUrl(url = '') {
   if (url.includes('generativelanguage.googleapis.com')) return 'gemini';
   return 'custom';
 }
+
+// Human name for an endpoint, for the overlay's model line: the preset's name,
+// or the host (with port) of a custom endpoint, e.g. "api.mistral.ai".
+export function endpointLabel(url = '') {
+  const provider = providerFromUrl(url);
+  if (provider === 'openrouter') return 'OpenRouter';
+  if (provider === 'gemini') return 'Gemini';
+  try {
+    return new URL(url).host || 'Custom endpoint';
+  } catch {
+    return 'Custom endpoint';
+  }
+}
