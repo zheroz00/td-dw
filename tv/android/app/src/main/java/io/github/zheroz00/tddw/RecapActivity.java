@@ -3,6 +3,7 @@ package io.github.zheroz00.tddw;
 import android.app.Activity;
 import android.graphics.Color;
 import android.media.AudioManager;
+import android.media.session.MediaController;
 import android.net.Uri;
 import android.os.Bundle;
 import android.util.TypedValue;
@@ -26,11 +27,19 @@ import java.nio.file.Files;
  *
  * The window is translucent (RecapTheme) on purpose: Android then only pauses the activity underneath
  * instead of stopping it, which is what a full-screen browser does and what ends Jellyfin's playback.
+ *
+ * On launch it reads what is playing from the media sessions (needs the notification listener grant) and
+ * passes it to the page. Jellyfin is paused by the TD;DW service. Any other app, such as YouTube, keeps
+ * playing under this window, so this pauses it and plays it again on Back.
  */
 public final class RecapActivity extends Activity {
     private static final String CONFIG_FILE = "recap-url.txt";
 
     private WebView webView;
+    /** The player this app paused, to be resumed on Back. Null when it paused nothing. */
+    private MediaController pausedPlayer;
+    /** True when the picked session belongs to an app other than Jellyfin, which the service does not pause. */
+    private boolean otherAppPicked;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,7 +50,18 @@ public final class RecapActivity extends Activity {
             showMessage(getString(R.string.no_config, config.getAbsolutePath()));
             return;
         }
-        openRecap(url);
+        MediaSessions.Result media = MediaSessions.read(this);
+        pausePlayer(media);
+        openRecap(RecapUrl.withNowPlaying(url, media.nowPlaying, media.hasAccess));
+    }
+
+    private void pausePlayer(MediaSessions.Result media) {
+        if (media.controller == null || NowPlaying.isJellyfin(media.nowPlaying.app)) return;
+        otherAppPicked = true;
+        if (media.playing) {
+            media.controller.getTransportControls().pause();
+            pausedPlayer = media.controller;
+        }
     }
 
     private void openRecap(String url) {
@@ -60,12 +80,16 @@ public final class RecapActivity extends Activity {
 
     @Override
     public void onBackPressed() {
-        resumePlayer();
+        if (pausedPlayer != null) {
+            pausedPlayer.getTransportControls().play();
+        } else if (!otherAppPicked) {
+            sendPlayKey();
+        }
         finish();
     }
 
-    /** The recap page pauses the player when it starts a recap, so closing it plays again. */
-    private void resumePlayer() {
+    /** The recap page pauses Jellyfin when it starts a recap, so closing it plays again. */
+    private void sendPlayKey() {
         AudioManager audio = getSystemService(AudioManager.class);
         audio.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_MEDIA_PLAY));
         audio.dispatchMediaKeyEvent(new KeyEvent(KeyEvent.ACTION_UP, KeyEvent.KEYCODE_MEDIA_PLAY));
