@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">TD;DW Recap</string>
+    <string name="no_config">No recap address set yet.\n\nPut the TV view URL in this file over ADB:\n%1$s\n\nPress Back to close.</string>
+    <string name="no_connection">Could not reach the TD;DW server.\n\nCheck that it is running and that the address in recap-url.txt is right.\n\nPress Back to close.</string>
+</resources>

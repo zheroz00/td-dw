@@ -71,7 +71,11 @@ Whatever you pick, the LLM request gives up after 2 minutes and the page says so
 
 ## The remote button
 
-This uses TV Quick Actions Pro on Android TV to fire a URL from a spare remote button.
+This uses TV Quick Actions Pro on Android TV to bring up the recap from a spare remote button.
+
+**Recommended: the small TD;DW Recap app.** It has no browser or ads, keeps the player paused underneath, and one press of Back resumes your video. See [android/README.md](android/README.md).
+
+**Or use a browser, with nothing to install:**
 
 1. **Set a default browser on the TV first.** If you don't, Android asks which browser to use every single time you press the button.
 2. In TV Quick Actions Pro, create a new action:
