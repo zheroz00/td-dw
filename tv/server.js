@@ -1,9 +1,11 @@
 // TD;DW TV: the recap service behind the remote button. Wires the real
-// Jellyfin client, recap engine and store into the HTTP app and listens.
+// Jellyfin and YouTube clients, recap engine and store into the HTTP app and
+// listens.
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
 import { loadConfig, ConfigError } from './lib/config.js';
 import { createJellyfinClient } from './lib/jellyfin.js';
+import { createYouTubeClient } from './lib/youtube.js';
 import { createRecapService } from './lib/recap.js';
 import { createStore } from './lib/store.js';
 import { createApp } from './lib/http-app.js';
@@ -18,8 +20,9 @@ try {
 }
 
 const jellyfin = createJellyfinClient(config.jellyfin);
-const recapService = createRecapService({ jellyfin, config });
-const store = createStore(() => recapService.recap());
+const youtube = createYouTubeClient();
+const recapService = createRecapService({ jellyfin, youtube, config });
+const store = createStore((hint) => recapService.recap(hint));
 const app = createApp({
   config,
   store,

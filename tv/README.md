@@ -1,6 +1,6 @@
 # TD;DW on your TV
 
-Press a button on your Android TV remote while Jellyfin is playing and get a spoiler-free "what did I miss" recap on screen, up to the exact moment you're at. Your phone can open the same recap and ask follow-up questions.
+Press a button on your Android TV remote while Jellyfin or YouTube is playing and get a spoiler-free "what did I miss" recap on screen, up to the exact moment you're at. Your phone can open the same recap and ask follow-up questions.
 
 > 📸 **Screenshot needed:** the TV view on a 1080p TV mid-recap -> docs/images/tv-recap.png
 
@@ -12,7 +12,7 @@ This is the TV side of [TD;DW](../README.md). A browser extension can't run on a
 - **The key lives in the URL.** The TV button and the phone bookmark both carry `?key=...`, so treat them like passwords. Anyone with the link can trigger recaps (and spend your LLM credits).
 - **Needs Jellyfin 10.9 or newer.** The resume-point fallback uses an endpoint that older servers don't have.
 - **Image-only subtitles get a memory recap.** If a title only has PGS or VOBSUB subtitles (pictures of text), there is no text to read, so the recap comes from the model's memory and the page says so with a "From the model's memory, may be imperfect" badge. Text subtitles (SRT, ASS, WebVTT and so on) give a transcript-grade recap.
-- **The recap pauses the TV.** Set `PAUSE_ON_RECAP=false` if you'd rather it didn't.
+- **The recap pauses the TV.** Set `PAUSE_ON_RECAP=false` if you'd rather it didn't. This only applies to Jellyfin. See [YouTube](#youtube) for how YouTube is paused.
 - **You need an LLM endpoint.** Any OpenAI-compatible one works. See [Choosing a model](#choosing-a-model) before you pick, because a thinking model on a small local setup can be slow or return nothing.
 
 Tested against Jellyfin 12.2 with an NVIDIA Shield running "Jellyfin for Android TV". That app reports its device name as `SHIELD`, which is what `JELLYFIN_DEVICE=SHIELD` matches.
@@ -71,7 +71,11 @@ Whatever you pick, the LLM request gives up after 2 minutes and the page says so
 
 ## The remote button
 
-This uses TV Quick Actions Pro on Android TV to fire a URL from a spare remote button.
+This uses TV Quick Actions Pro on Android TV to bring up the recap from a spare remote button.
+
+**Recommended: the small TD;DW Recap app.** It has no browser or ads, keeps the player paused underneath, and one press of Back resumes your video. See [android/README.md](android/README.md).
+
+**Or use a browser, with nothing to install:**
 
 1. **Set a default browser on the TV first.** If you don't, Android asks which browser to use every single time you press the button.
 2. In TV Quick Actions Pro, create a new action:
@@ -107,6 +111,19 @@ Phone home-screen bookmark
   -> POST /api/ask                   follow-up answer, appended to the thread
   -> "New recap" button              POST /api/recap (pauses the TV)
 ```
+
+## YouTube
+
+The TD;DW Recap app can also recap YouTube on the TV. A few things to know first:
+
+- **It needs the Recap app and its notification access.** The browser-only setup can't tell what YouTube is playing, so it only does Jellyfin. The app reads the playing title, channel and position from Android and passes them to the service. See [android/README.md](android/README.md) for turning notification access on. Without it, the page says so and recaps Jellyfin only.
+- **Only exact matches.** The service searches YouTube for the title and channel the app reports, and uses a result only when both match exactly (ignoring case and spacing). A reupload on another channel has the same title, so it is skipped on purpose. If nothing matches, the page says it couldn't find the video.
+- **Captions come from an unofficial route.** YouTube has no official API for another channel's captions, so TD;DW uses the same InnerTube endpoints the YouTube site uses. That works today and can break whenever YouTube changes them. If it does, the page shows "Couldn't reach YouTube" with the reason, and `docker compose logs` has the details.
+- **No memory fallback.** If a video has no captions up to your position, or can't be found, you get a plain message and no recap. A recap from the model's memory of a random video would be made up, so it never happens on YouTube. Ads and other moments when YouTube doesn't report a title get the same treatment: wait for the ad to finish and press again.
+- **Pausing is the app's job.** `PAUSE_ON_RECAP` only applies to Jellyfin, because the service can't control YouTube. The Recap app pauses the player itself.
+- **Other apps say "not supported".** Netflix, Prime Video, Disney+ and anything else show a message saying TD;DW on the TV works with Jellyfin and YouTube. Nothing is paused and no LLM call is made.
+
+The YouTube lookups go from your server straight to youtube.com, along with the usual call to your LLM endpoint.
 
 ## Troubleshooting
 

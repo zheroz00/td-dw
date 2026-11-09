@@ -92,3 +92,24 @@ test('store: a reader waiting on a failing run gets the previous recap', async (
   await assert.rejects(failing, /LLM down/);
   assert.equal((await reader).id, 'r1');
 });
+
+test('store: recap(hint) hands the hint to runRecap, and none means null', async () => {
+  const seen = [];
+  const store = createStore(async (hint) => { seen.push(hint); return record('a'); });
+  const hint = { nowPlaying: null, mediaAccess: false };
+  await store.recap(hint);
+  await store.recap();
+  assert.deepEqual(seen, [hint, null]);
+});
+
+test('store: a request joining a running recap ignores its own hint', async () => {
+  const seen = [];
+  const d = deferred();
+  const store = createStore((hint) => { seen.push(hint); return d.promise; });
+  const first = store.recap({ mediaAccess: false });
+  const second = store.recap({ nowPlaying: { app: 'com.netflix.ninja' } });
+  assert.equal(first, second);
+  d.resolve(record('a'));
+  await first;
+  assert.deepEqual(seen, [{ mediaAccess: false }]);
+});
