@@ -154,11 +154,12 @@ reads your logged-in session token from the page (no separate API key), and pull
 movies included. Items with only image-based subs (PGS/VOBSUB) or no subs fall back to knowledge
 mode automatically.
 
-### On your TV (Jellyfin)
+### On your TV (Jellyfin and YouTube)
 
 A browser extension can't run on a TV, so there's a small self-hosted service for it. Press a
 button on your Android TV remote while Jellyfin is playing and a spoiler-free recap page opens
-on the TV, up to where you are. Open the same recap on your phone to ask follow-up questions.
+on the TV, up to where you are. With the companion Android TV app it also recaps YouTube, from the
+video's captions. Open the same recap on your phone to ask follow-up questions.
 Setup, the remote button and the phone bookmark are in [tv/README.md](tv/README.md).
 
 > 📸 **Screenshot needed:** phone view with a follow-up answer -> docs/images/tv-phone.png
@@ -175,7 +176,8 @@ on OpenRouter requests, which OpenRouter uses for app attribution; it says nothi
 
 The optional TV service (`tv/`) is a backend you run yourself: it sends the same thing (title,
 subtitles up to your position, follow-up questions) from your server to the LLM endpoint you
-configure, and nowhere else.
+configure. For YouTube recaps it also looks up the video and its captions on youtube.com from your
+server, and nowhere else.
 
 **Why the permissions look the way they do:**
 

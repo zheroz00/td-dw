@@ -41,3 +41,27 @@ export function formatTime(seconds) {
   const ss = String(s % 60).padStart(2, '0');
   return h > 0 ? `${h}:${String(m).padStart(2, '0')}:${ss}` : `${m}:${ss}`;
 }
+
+// What the Android TV app says is playing, from its extra URL params
+// (np_app, np_title, np_artist, np_pos, np_dur in ms, or np_access=0 when it has
+// no notification access). Returns the POST body for /api/recap, or null when
+// there is nothing to send (phone view, older app, garbled position). The
+// server validates it again; this only shapes it.
+export function mediaHintFromParams(params) {
+  const app = params.get('np_app');
+  if (!app) return params.get('np_access') === '0' ? { mediaAccess: false } : null;
+
+  const positionMs = Number(params.get('np_pos'));
+  if (!params.get('np_pos') || !Number.isFinite(positionMs)) return null;
+
+  const nowPlaying = { app, positionMs };
+  const title = params.get('np_title');
+  const artist = params.get('np_artist');
+  if (title) nowPlaying.title = title;
+  if (artist) nowPlaying.artist = artist;
+  // Players report 0 or -1 for an unknown duration (live streams), so only a
+  // real length is sent.
+  const durationMs = params.get('np_dur') ? Number(params.get('np_dur')) : NaN;
+  if (Number.isFinite(durationMs) && durationMs > 0) nowPlaying.durationMs = durationMs;
+  return { nowPlaying };
+}

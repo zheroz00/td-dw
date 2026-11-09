@@ -5,10 +5,12 @@
 // subtitle parser and transcript capping serves the browser and the TV.
 import '../../content/adapters/transcript-cap.js';
 import '../../content/adapters/jellyfin-subtitles.js';
+import '../../content/adapters/youtube-transcript.js';
 
 export const {
   parseJellyfinSubtitles,
   pickJellyfinSubtitleStream,
   capTranscript,
-  TRANSCRIPT_BUDGET_CHARS
+  TRANSCRIPT_BUDGET_CHARS,
+  fetchYouTubeTranscript
 } = globalThis.TDDW;

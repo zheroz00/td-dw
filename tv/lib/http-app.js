@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { isAuthorized } from './auth.js';
 import { JellyfinError } from './jellyfin.js';
 import { NothingPlayingError } from './now-playing.js';
+import { parseMediaHint, MediaHintError } from './media-hint.js';
 
 // HTTP layer: routing, the key check, body limits and security headers. The
 // recap work lives in the store and recap service passed in, so tests drive
@@ -93,6 +94,7 @@ export function toClient(record) {
 
 function statusFor(err) {
   if (err instanceof HttpError) return err.status;
+  if (err instanceof MediaHintError) return 400;
   if (err instanceof NothingPlayingError) return 404;
   if (err instanceof JellyfinError) return 502;
   return 500;
@@ -129,7 +131,9 @@ export function createApp({ config, store, recapService, publicDir, log = consol
     }
 
     if (method === 'POST' && pathname === '/api/recap') {
-      return sendJson(res, 200, toClient(await store.recap()));
+      // Phone and browser recaps send no body; the TV app sends what it sees playing.
+      const hint = parseMediaHint(await readJson(req));
+      return sendJson(res, 200, toClient(await store.recap(hint)));
     }
 
     if (method === 'GET' && pathname === '/api/latest') {

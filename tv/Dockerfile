@@ -9,7 +9,7 @@ WORKDIR /app
 COPY package.json ./
 COPY background/config.js background/llm-client.js ./background/
 COPY background/providers/ ./background/providers/
-COPY content/adapters/jellyfin-subtitles.js content/adapters/transcript-cap.js ./content/adapters/
+COPY content/adapters/jellyfin-subtitles.js content/adapters/transcript-cap.js content/adapters/youtube-transcript.js ./content/adapters/
 COPY tv/server.js ./tv/
 COPY tv/lib/ ./tv/lib/
 COPY tv/public/ ./tv/public/

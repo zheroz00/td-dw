@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
-import { splitBold, parseRecap, formatTime, LIST_MARKER, TIME_CHIP } from '../../tv/public/render.js';
+import { splitBold, parseRecap, formatTime, mediaHintFromParams, LIST_MARKER, TIME_CHIP } from '../../tv/public/render.js';
 import { formatTime as promptsFormatTime } from '../../background/providers/prompts.js';
 
 test('parseRecap: strips list markers', () => {
@@ -71,4 +71,41 @@ test('the overlay still parses with the same regexes', async () => {
   const hint = 'the overlay parsing changed, so tv/public/render.js must change to match';
   assert.ok(overlay.includes(LIST_MARKER.source), `list marker regex missing from overlay.js: ${hint}`);
   assert.ok(overlay.includes(TIME_CHIP.source), `time chip regex missing from overlay.js: ${hint}`);
+});
+
+const hintFor = (query) => mediaHintFromParams(new URLSearchParams(query));
+
+test('mediaHintFromParams: a full now-playing hint, numbers parsed', () => {
+  assert.deepEqual(
+    hintFor('np_app=com.google.android.youtube.tv&np_title=A%20video&np_artist=A%20channel&np_pos=61000&np_dur=600000&key=k&view=tv'),
+    { nowPlaying: { app: 'com.google.android.youtube.tv', title: 'A video', artist: 'A channel', positionMs: 61000, durationMs: 600000 } }
+  );
+});
+
+test('mediaHintFromParams: absent title, artist and duration are left out', () => {
+  assert.deepEqual(hintFor('np_app=com.netflix.ninja&np_pos=0'), { nowPlaying: { app: 'com.netflix.ninja', positionMs: 0 } });
+  assert.deepEqual(hintFor('np_app=a.b&np_pos=5&np_title=&np_artist=&np_dur='), { nowPlaying: { app: 'a.b', positionMs: 5 } });
+});
+
+test('mediaHintFromParams: an unknown duration is left out', () => {
+  assert.deepEqual(hintFor('np_app=a.b&np_pos=5&np_dur=-1'), { nowPlaying: { app: 'a.b', positionMs: 5 } });
+  assert.deepEqual(hintFor('np_app=a.b&np_pos=5&np_dur=0'), { nowPlaying: { app: 'a.b', positionMs: 5 } });
+  assert.deepEqual(hintFor('np_app=a.b&np_pos=5&np_dur=soon'), { nowPlaying: { app: 'a.b', positionMs: 5 } });
+});
+
+test('mediaHintFromParams: np_access=0 means no notification access', () => {
+  assert.deepEqual(hintFor('np_access=0&view=tv'), { mediaAccess: false });
+  assert.equal(hintFor('np_access=1'), null);
+});
+
+test('mediaHintFromParams: no np_app means no hint', () => {
+  assert.equal(hintFor(''), null);
+  assert.equal(hintFor('view=tv&key=k'), null);
+  assert.equal(hintFor('np_title=x&np_pos=5'), null);
+});
+
+test('mediaHintFromParams: a missing or non-numeric position means no hint', () => {
+  assert.equal(hintFor('np_app=a.b&np_pos=abc'), null);
+  assert.equal(hintFor('np_app=a.b&np_pos=Infinity'), null);
+  assert.equal(hintFor('np_app=a.b'), null);
 });

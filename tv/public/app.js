@@ -1,4 +1,4 @@
-import { parseRecap, splitBold, formatTime } from './render.js';
+import { parseRecap, splitBold, formatTime, mediaHintFromParams } from './render.js';
 
 // One page, two views. ?view=tv is what the remote button opens: big type, a
 // fresh recap on load, and no inputs (nothing for a D-pad to get stuck in).
@@ -150,7 +150,10 @@ async function newRecap() {
   clearRecap();
   startLoader('Catching you up...');
   try {
-    renderRecap(await api('/api/recap', { method: 'POST' }));
+    // Only the TV app's link carries what's playing. No hint keeps the plain
+    // POST (Jellyfin), and the phone view never sends one.
+    const hint = IS_TV ? mediaHintFromParams(params) : null;
+    renderRecap(await api('/api/recap', { method: 'POST', ...(hint && { body: JSON.stringify(hint) }) }));
   } catch (err) {
     showStatus(err.message, 'error');
   } finally {

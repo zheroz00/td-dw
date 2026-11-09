@@ -120,6 +120,55 @@ test('http: POST /api/recap returns the recap without the transcript', async () 
   await app.close();
 });
 
+test('http: POST /api/recap passes a valid media hint to the store', async () => {
+  const hints = [];
+  const app = await startApp({ runRecap: async (hint) => { hints.push(hint); return structuredClone(RECORD); } });
+  const nowPlaying = { app: 'com.google.android.youtube.tv', title: 'A video', artist: 'A channel', positionMs: 5000, durationMs: 60000 };
+  assert.equal((await app.call('/api/recap', { body: { nowPlaying } })).status, 200);
+  assert.deepEqual(hints[0], { nowPlaying, mediaAccess: null });
+  await app.close();
+});
+
+test('http: POST /api/recap with an access-only hint', async () => {
+  const hints = [];
+  const app = await startApp({ runRecap: async (hint) => { hints.push(hint); return structuredClone(RECORD); } });
+  assert.equal((await app.call('/api/recap', { body: { mediaAccess: false } })).status, 200);
+  assert.deepEqual(hints[0], { nowPlaying: null, mediaAccess: false });
+  await app.close();
+});
+
+test('http: POST /api/recap with no body, or an empty object, still works with no hint', async () => {
+  const hints = [];
+  const app = await startApp({ runRecap: async (hint) => { hints.push(hint); return structuredClone(RECORD); } });
+  assert.equal((await app.call('/api/recap', { method: 'POST' })).status, 200);
+  assert.equal((await app.call('/api/recap', { body: {} })).status, 200);
+  assert.deepEqual(hints, [null, null]);
+  await app.close();
+});
+
+test('http: POST /api/recap answers a bad hint with a 400 and does not start a recap', async () => {
+  let runs = 0;
+  const app = await startApp({ runRecap: async () => { runs++; return structuredClone(RECORD); } });
+  const bad = [
+    { nowPlaying: { app: 'not a package', positionMs: 1 } },
+    { nowPlaying: { app: 'a.b', positionMs: -1 } },
+    { nowPlaying: { app: 'a.b' } },
+    { nowPlaying: { app: 'a.b', positionMs: 1, durationMs: 0 } },
+    { nowPlaying: { app: 'a.b', positionMs: 1, title: 'x'.repeat(501) } },
+    { nowPlaying: 'youtube' },
+    { mediaAccess: 'no' }
+  ];
+  for (const body of bad) {
+    const res = await app.call('/api/recap', { body });
+    assert.equal(res.status, 400, JSON.stringify(body));
+    assert.match((await res.json()).error, /nowPlaying|mediaAccess/);
+  }
+  assert.equal((await app.call('/api/recap', { body: 'not json' })).status, 400);
+  assert.equal((await app.call('/api/recap', { body: 'null' })).status, 400);
+  assert.equal(runs, 0);
+  await app.close();
+});
+
 test('http: GET /api/latest is a 404 until the first recap', async () => {
   const app = await startApp();
   const res = await app.call('/api/latest');
