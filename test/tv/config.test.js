@@ -1,0 +1,125 @@
+import { test } from 'node:test';
+import assert from 'node:assert/strict';
+import { loadConfig, ConfigError } from '../../tv/lib/config.js';
+
+const VALID = {
+  JELLYFIN_URL: 'http://jellyfin.local:8096/',
+  JELLYFIN_API_KEY: 'jf-key',
+  TDDW_TV_KEY: 'abcdef0123456789abcdef',
+  LLM_BASE_URL: 'http://llm.local:4000/v1',
+  LLM_MODEL: 'gemma'
+};
+
+test('loadConfig: valid env gets defaults and a trimmed URL', () => {
+  const c = loadConfig(VALID);
+  assert.equal(c.port, 8795);
+  assert.equal(c.pauseOnRecap, true);
+  assert.equal(c.tvKey, 'abcdef0123456789abcdef');
+  assert.deepEqual(c.jellyfin, { url: 'http://jellyfin.local:8096', apiKey: 'jf-key', device: null, subtitleLang: 'en' });
+  assert.deepEqual(c.llm, {
+    baseUrl: 'http://llm.local:4000/v1',
+    apiKey: '',
+    model: 'gemma',
+    summaryLength: 'medium',
+    recapProvider: 'auto',
+    spoilerFreeAnswers: true,
+    transcriptBudget: 'standard',
+    reasoningEffort: null
+  });
+  assert.ok(Object.isFrozen(c) && Object.isFrozen(c.llm) && Object.isFrozen(c.jellyfin));
+});
+
+test('loadConfig: optional values are honoured', () => {
+  const c = loadConfig({
+    ...VALID,
+    PORT: '9001',
+    PAUSE_ON_RECAP: 'false',
+    JELLYFIN_DEVICE: 'SHIELD',
+    SUBTITLE_LANG: 'fr',
+    SUMMARY_LENGTH: 'short',
+    TRANSCRIPT_BUDGET: 'local',
+    SPOILER_FREE_ANSWERS: 'no',
+    LLM_API_KEY: 'sk-test'
+  });
+  assert.equal(c.port, 9001);
+  assert.equal(c.pauseOnRecap, false);
+  assert.equal(c.jellyfin.device, 'SHIELD');
+  assert.equal(c.jellyfin.subtitleLang, 'fr');
+  assert.equal(c.llm.summaryLength, 'short');
+  assert.equal(c.llm.transcriptBudget, 'local');
+  assert.equal(c.llm.spoilerFreeAnswers, false);
+  assert.equal(c.llm.apiKey, 'sk-test');
+});
+
+test('loadConfig: a Jellyfin URL with a sub-path keeps the path', () => {
+  assert.equal(loadConfig({ ...VALID, JELLYFIN_URL: 'https://example.com/jellyfin/' }).jellyfin.url, 'https://example.com/jellyfin');
+});
+
+test('loadConfig: every missing required var is reported at once', () => {
+  assert.throws(() => loadConfig({}), (err) => {
+    assert.ok(err instanceof ConfigError);
+    for (const name of ['JELLYFIN_URL', 'JELLYFIN_API_KEY', 'TDDW_TV_KEY', 'LLM_BASE_URL', 'LLM_MODEL']) {
+      assert.ok(err.problems.some((p) => p.startsWith(name)), `expected a problem for ${name}`);
+    }
+    return true;
+  });
+});
+
+test('loadConfig: rejects a short or URL-unsafe TV key without echoing it', () => {
+  for (const bad of ['short', 'has spaces in it 1234', 'plus+and&hash#chars1234']) {
+    assert.throws(() => loadConfig({ ...VALID, TDDW_TV_KEY: bad }), (err) => {
+      assert.ok(err.problems.some((p) => p.startsWith('TDDW_TV_KEY')));
+      assert.ok(!err.message.includes(bad), 'the key must not appear in the error');
+      return true;
+    });
+  }
+});
+
+test('loadConfig: rejects bad URLs, flags, choices and ports', () => {
+  assert.throws(() => loadConfig({ ...VALID, JELLYFIN_URL: 'jellyfin.local' }), /JELLYFIN_URL must be an http/);
+  assert.throws(() => loadConfig({ ...VALID, LLM_BASE_URL: 'ftp://llm.local' }), /LLM_BASE_URL must be an http/);
+  assert.throws(() => loadConfig({ ...VALID, PAUSE_ON_RECAP: 'maybe' }), /PAUSE_ON_RECAP must be true or false/);
+  assert.throws(() => loadConfig({ ...VALID, SUMMARY_LENGTH: 'huge' }), /SUMMARY_LENGTH must be one of/);
+  assert.throws(() => loadConfig({ ...VALID, PORT: '99999' }), /PORT must be a whole number/);
+});
+
+test('loadConfig: LLM_REASONING_EFFORT is optional and accepts the known efforts', () => {
+  assert.equal(loadConfig(VALID).llm.reasoningEffort, null);
+  assert.equal(loadConfig({ ...VALID, LLM_REASONING_EFFORT: 'none' }).llm.reasoningEffort, 'none');
+  assert.equal(loadConfig({ ...VALID, LLM_REASONING_EFFORT: 'High' }).llm.reasoningEffort, 'high');
+});
+
+test('loadConfig: rejects an unknown LLM_REASONING_EFFORT', () => {
+  assert.throws(() => loadConfig({ ...VALID, LLM_REASONING_EFFORT: 'max' }), (err) => {
+    assert.ok(err instanceof ConfigError);
+    assert.ok(err.problems.some((p) => p.startsWith('LLM_REASONING_EFFORT must be one of')));
+    return true;
+  });
+});
+
+test('loadConfig: rejects a Jellyfin URL copied from the browser bar (fragment or query)', () => {
+  for (const bad of ['http://jellyfin.local:8096/web/#/home.html', 'http://jellyfin.local:8096/?x=1']) {
+    assert.throws(() => loadConfig({ ...VALID, JELLYFIN_URL: bad }), (err) => {
+      assert.ok(err instanceof ConfigError);
+      assert.ok(err.problems.some((p) => p.startsWith('JELLYFIN_URL should be the server address only')));
+      assert.ok(!err.message.includes(bad), 'the URL must not be echoed');
+      return true;
+    });
+  }
+});
+
+test('loadConfig: OpenRouter or Gemini with a blank LLM_API_KEY is rejected at startup', () => {
+  for (const baseUrl of ['https://openrouter.ai/api/v1', 'https://generativelanguage.googleapis.com/v1beta/openai']) {
+    assert.throws(() => loadConfig({ ...VALID, LLM_BASE_URL: baseUrl, LLM_API_KEY: '   ' }), (err) => {
+      assert.ok(err instanceof ConfigError);
+      assert.ok(err.problems.includes('LLM_API_KEY is required for OpenRouter and Gemini (leave it blank only for local endpoints)'));
+      return true;
+    });
+  }
+});
+
+test('loadConfig: OpenRouter with a key is accepted, and a custom endpoint may leave the key blank', () => {
+  const c = loadConfig({ ...VALID, LLM_BASE_URL: 'https://openrouter.ai/api/v1', LLM_API_KEY: 'sk-or-test' });
+  assert.equal(c.llm.apiKey, 'sk-or-test');
+  assert.equal(loadConfig({ ...VALID, LLM_BASE_URL: 'http://llm.local:4000/v1' }).llm.apiKey, '');
+});

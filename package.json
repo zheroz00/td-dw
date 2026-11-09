@@ -3,7 +3,8 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test 'test/**/*.test.js'"
+    "test": "node --test 'test/**/*.test.js'",
+    "tv": "node --env-file=tv/.env tv/server.js"
   },
   "engines": {
     "node": ">=20"

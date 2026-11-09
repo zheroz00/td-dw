@@ -1,0 +1,97 @@
+:root {
+  color-scheme: dark;
+  --bg: #0e1014;
+  --panel: #171a21;
+  --line: #2a2f3a;
+  --text: #e9ebf0;
+  --muted: #9aa1ad;
+  --accent: #5fd4c4;
+  --grounded: #6fd38f;
+  --memory: #e8b45a;
+  --error: #ff7a7a;
+  --radius: 14px;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+* { box-sizing: border-box; }
+[hidden] { display: none !important; }
+
+body { margin: 0; background: var(--bg); color: var(--text); line-height: 1.5; }
+.app { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+
+.brand { margin: 0; color: var(--accent); font-weight: 700; letter-spacing: 0.08em; font-size: 0.85rem; }
+.title { margin: 4px 0 2px; font-size: 1.6rem; line-height: 1.2; }
+.title:empty { display: none; }
+.meta { margin: 0 0 20px; color: var(--muted); }
+.meta:empty { display: none; }
+
+.status { margin: 16px 0; padding: 16px; border-radius: var(--radius); background: var(--panel); }
+.status.error { color: var(--error); }
+.status.loading::before {
+  content: "";
+  display: inline-block;
+  width: 0.9em;
+  height: 0.9em;
+  margin-right: 0.6em;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  vertical-align: -0.1em;
+  animation: spin 0.9s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .status.loading::before { animation: none; } }
+
+.badge { display: inline-block; margin: 0 0 12px; padding: 4px 12px; border-radius: 999px; font-size: 0.85rem; background: var(--panel); }
+.badge.grounded { color: var(--grounded); }
+.badge.memory { color: var(--memory); }
+.note { margin: 0 0 12px; color: var(--memory); }
+
+.bullets { list-style: none; margin: 0; padding: 0; display: grid; gap: 10px; }
+.bullets li { display: flex; gap: 12px; align-items: baseline; padding: 14px 16px; background: var(--panel); border-radius: var(--radius); }
+.chip { flex: none; font-variant-numeric: tabular-nums; font-size: 0.85em; color: var(--accent); }
+strong { color: #fff; }
+
+.qa { margin-top: 28px; }
+.thread { display: grid; gap: 8px; margin-bottom: 12px; }
+.question { margin: 0; justify-self: end; max-width: 85%; padding: 10px 14px; border-radius: var(--radius); background: #22313a; }
+.answer { margin: 0; max-width: 90%; padding: 10px 14px; border-radius: var(--radius); background: var(--panel); }
+.answer.pending { color: var(--muted); }
+.answer.error { color: var(--error); }
+
+.ask { display: flex; gap: 8px; }
+.ask input {
+  flex: 1;
+  min-width: 0;
+  padding: 12px 14px;
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+}
+.ask input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+button { padding: 12px 18px; font: inherit; font-weight: 600; color: var(--bg); background: var(--accent); border: 0; border-radius: var(--radius); cursor: pointer; }
+button:disabled { opacity: 0.5; cursor: default; }
+button.secondary { color: var(--accent); background: transparent; border: 1px solid var(--accent); }
+
+.foot { margin-top: 28px; }
+.tv-hint { color: var(--muted); }
+
+/* TV view: sizes are vw (px at 1920 / 1920 * 100) so it looks the same on a 1080p and a 960x540 CSS viewport. */
+body.tv .app { max-width: 78.125vw; padding: 4vh 5vw; }
+body.tv .brand { font-size: 1.16667vw; }
+body.tv .title { font-size: 2.5vw; margin: 0.20833vw 0 0.10417vw; }
+body.tv .meta,
+body.tv .status,
+body.tv .badge,
+body.tv .note,
+body.tv .tv-hint { font-size: 1.25vw; }
+body.tv .meta { margin-bottom: 1.04167vw; }
+body.tv .status { margin: 0.83333vw 0; padding: 0.83333vw; border-radius: 0.72917vw; }
+body.tv .badge { margin-bottom: 0.625vw; padding: 0.20833vw 0.625vw; }
+body.tv .note { margin-bottom: 0.625vw; }
+body.tv .bullets { gap: 0.72917vw; }
+body.tv .bullets li { font-size: 1.4583333vw; gap: 0.625vw; padding: 0.9375vw 1.25vw; border-radius: 0.72917vw; }
+body.tv .foot { margin-top: 1.4583333vw; }

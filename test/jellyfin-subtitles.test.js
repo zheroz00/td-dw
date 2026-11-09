@@ -67,3 +67,46 @@ test('returns null for non-VTT input', () => {
   assert.equal(TDDW.parseJellyfinSubtitles('', 60000, 'eng'), null);
   assert.equal(TDDW.parseJellyfinSubtitles(null, 60000, 'eng'), null);
 });
+
+// --- pickJellyfinSubtitleStream ---------------------------------------------
+
+const ENG = { Index: 2, Language: 'eng' };
+const GER = { Index: 3, Language: 'ger' };
+const SPA = { Index: 4, Language: 'spa' };
+
+test('pickJellyfinSubtitleStream: prefers the requested language', () => {
+  assert.equal(TDDW.pickJellyfinSubtitleStream([ENG, SPA], 'es').Index, 4);
+});
+
+test('pickJellyfinSubtitleStream: falls back to English when the language is missing', () => {
+  assert.equal(TDDW.pickJellyfinSubtitleStream([GER, ENG], 'fr').Index, 2);
+});
+
+test('pickJellyfinSubtitleStream: a forced track loses to a full one in the same language', () => {
+  const forced = { Index: 5, Language: 'eng', IsForced: true, IsDefault: true };
+  assert.equal(TDDW.pickJellyfinSubtitleStream([forced, ENG], 'en').Index, 2);
+});
+
+test('pickJellyfinSubtitleStream: no streams means null', () => {
+  assert.equal(TDDW.pickJellyfinSubtitleStream([], 'en'), null);
+  assert.equal(TDDW.pickJellyfinSubtitleStream(undefined, 'en'), null);
+});
+
+// Jellyfin reports 3-letter ISO 639-2 codes that often don't share a prefix with
+// the 2-letter code. Each case lists the target beside an English track, so a
+// missed match falls back to English and fails.
+test('pickJellyfinSubtitleStream: fr matches both fre and fra', () => {
+  const FRE = { Index: 6, Language: 'fre' };
+  const FRA = { Index: 7, Language: 'fra' };
+  assert.equal(TDDW.pickJellyfinSubtitleStream([ENG, FRE], 'fr').Index, 6);
+  assert.equal(TDDW.pickJellyfinSubtitleStream([ENG, FRA], 'fr').Index, 7);
+});
+
+test('pickJellyfinSubtitleStream: de matches ger', () => {
+  assert.equal(TDDW.pickJellyfinSubtitleStream([ENG, GER], 'de').Index, 3);
+});
+
+test('pickJellyfinSubtitleStream: ja matches jpn', () => {
+  const JPN = { Index: 8, Language: 'jpn' };
+  assert.equal(TDDW.pickJellyfinSubtitleStream([ENG, JPN], 'ja').Index, 8);
+});

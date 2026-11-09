@@ -1,0 +1,14 @@
+# Run from tv/:  docker compose up -d --build
+# Settings come from tv/.env (copy .env.example). PORT there also sets the
+# published port.
+services:
+  td-dw-tv:
+    build:
+      context: ..
+      dockerfile: tv/Dockerfile
+    image: td-dw-tv:local
+    container_name: td-dw-tv
+    env_file: .env
+    ports:
+      - "${PORT:-8795}:${PORT:-8795}"
+    restart: unless-stopped

@@ -24,6 +24,7 @@ logs/
 # --- Secrets / credentials (defensive: nothing sensitive should ever land here) ---
 .env
 .env.*
+!.env.example
 *.pem
 *.key
 *.p12
