@@ -210,8 +210,27 @@ globalThis.TDDW.overlay = (() => {
     });
   }
 
-  // One bullet line → list item. A leading "[m:ss]" becomes a time chip —
-  // a seek button when an onSeek handler exists, a plain label otherwise.
+  // The whole bullet seeks, not just its tiny chip: a bigger target, and the
+  // hover highlight makes it obvious the line is clickable. The chip stays a
+  // plain span inside it (no button nested in a button-role element).
+  function makeSeekable(li, label, seconds) {
+    li.classList.add('cmu-seekable');
+    li.tabIndex = 0;
+    li.setAttribute('role', 'button');
+    li.title = `Jump to ${label}`;
+    li.addEventListener('click', () => handlers.onSeek(seconds));
+    li.addEventListener('keydown', (e) => {
+      if (e.key !== 'Enter' && e.key !== ' ') return;
+      e.preventDefault();
+      // Space is also the page's play/pause shortcut; keep it from reaching
+      // YouTube (the panel's closed shadow root hides the focused element).
+      e.stopPropagation();
+      handlers.onSeek(seconds);
+    });
+  }
+
+  // One bullet line → list item. A leading "[m:ss]" becomes a time chip, and
+  // the whole item seeks there when an onSeek handler exists.
   function renderItem(line, index) {
     const li = document.createElement('li');
     li.className = 'cmu-item';
@@ -221,13 +240,10 @@ globalThis.TDDW.overlay = (() => {
     if (tsMatch) {
       line = line.slice(tsMatch[0].length);
       const seconds = parseTimestamp(tsMatch[1]);
-      const chip = document.createElement(handlers.onSeek && seconds !== null ? 'button' : 'span');
+      const chip = document.createElement('span');
       chip.className = 'cmu-ts';
       chip.textContent = tsMatch[1];
-      if (chip.tagName === 'BUTTON') {
-        chip.title = 'Jump to this moment';
-        chip.addEventListener('click', () => handlers.onSeek(seconds));
-      }
+      if (handlers.onSeek && seconds !== null) makeSeekable(li, tsMatch[1], seconds);
       li.appendChild(chip);
     } else {
       const dot = document.createElement('span');
