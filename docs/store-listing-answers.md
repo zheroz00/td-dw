@@ -3,6 +3,44 @@
 Copy-paste source for the review forms. Keep this in sync with `manifest.json` when
 permissions change, because both stores ask you to justify every one of them.
 
+## Store listing copy
+
+**Category:** Productivity (Tools). **Language:** English.
+
+**Summary / short description** (132 characters max, same as the manifest):
+
+Too Distracted, Didn't Watch: spoiler-free recaps of what you're watching, and quick summaries of articles you're reading.
+
+**Detailed description:**
+
+Looked at your phone and lost the plot? Press one button and TD;DW tells you what happened so
+far, without spoiling anything that comes after where you are.
+
+Video recaps
+- Works on YouTube, Netflix, Prime Video, Disney+ and your own Jellyfin server.
+- Recaps only up to your current playback position. Nothing past that point is mentioned.
+- On YouTube and Jellyfin it reads the real captions, and on YouTube each point has a timestamp
+  you can click to jump back to that moment.
+- Ask follow-up questions ("who is the guy in the red coat?") and get spoiler-free answers.
+
+Article summaries
+- Click the icon on any article or blog post for a short summary that leads with the bottom line.
+- Ask follow-up questions about the text.
+
+Your model, your key
+- Bring your own API key for OpenRouter or Google Gemini, or point it at any OpenAI-compatible
+  endpoint, including a model running on your own machine.
+- No accounts, no tracking, no analytics. Nothing is sent until you click, and then only to the
+  provider you chose.
+
+Open source (MIT): https://github.com/zheroz00/td-dw
+Privacy policy: https://github.com/zheroz00/td-dw/blob/main/PRIVACY.md
+
+**Screenshots:** `docs/images/store/cws-recap-1280x800.jpg`, `docs/images/store/cws-followup-1280x800.jpg`
+(older panel design; replace with fresh shots, ideally one article summary, before going public).
+
+**Icon:** `icons/icon128.png`.
+
 ## Single purpose
 
 TD;DW catches you up on what's in your current tab: a spoiler-free recap of the video
