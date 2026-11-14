@@ -48,12 +48,12 @@ test('buildArticleMessages: asks for a bottom-line first bullet', () => {
   assert.match(systemOf(buildArticleMessages(article, { summaryLength: 'medium' })), /\*\*Bottom line:\*\*/);
 });
 
-test('buildArticleMessages: title, byline, site and URL are included when present', () => {
+test('buildArticleMessages: title, byline and site are included, the URL never is', () => {
   const user = userOf(buildArticleMessages(article, { summaryLength: 'medium' }));
   assert.match(user, /Title: Why Bridges Sag/);
   assert.match(user, /Byline: Ada Lovelace/);
   assert.match(user, /Site: The Daily Span/);
-  assert.match(user, /URL: https:\/\/example\.com\/bridges/);
+  assert.doesNotMatch(user, /example\.com/);
 });
 
 test('buildArticleMessages: missing byline and site leave no empty labels', () => {

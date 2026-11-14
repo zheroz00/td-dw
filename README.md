@@ -177,7 +177,7 @@ Setup, the remote button and the phone bookmark are in [tv/README.md](tv/README.
 
 ## Permissions & privacy
 
-**What it sends, and where.** TD;DW has no backend, no analytics, no telemetry. The only things
+**What it sends, and where.** (Full policy: [PRIVACY.md](PRIVACY.md).) TD;DW has no backend, no analytics, no telemetry. The only things
 that leave your machine are the recap request (the title, plus in transcript mode the subtitles,
 or on Netflix/Prime/Disney+ the subtitle lines this tab has shown on screen,
 up to your current timestamp), the article text when you click the icon on a web page, and any
@@ -289,13 +289,13 @@ server, and nowhere else.
 - Streaming responses, so bullets appear as they arrive instead of after a thinking model
   finishes. Deferred behind the accuracy work.
 - Publish to the Chrome Web Store. The developer account exists and
-  `dist/td-dw-chrome.zip` is upload-ready; the listing itself (screenshots, privacy policy,
+  `dist/td-dw-chrome.zip` is upload-ready; the privacy policy is [PRIVACY.md](PRIVACY.md), and the listing (screenshots,
   permission justifications) is drafted in [docs/store-listing-answers.md](docs/store-listing-answers.md)
   but not submitted. Chrome has no equivalent of Firefox's unlisted self-distribution: it blocks
   `.crx` installs from outside the store, so the store is the only realistic route.
   (Firefox is done: `scripts/sign-firefox.sh` produces a Mozilla-signed `.xpi` through AMO's
   unlisted channel, so it installs permanently.)
-- A public AMO listing for Firefox, which needs a privacy policy and reviewer notes explaining
+- A public AMO listing for Firefox, which needs reviewer notes explaining
   how to test without an API key. See [firefox/README.md](firefox/README.md).
 - Self-hosted auto-updates for the signed Firefox build: an `updates.json` on GitHub Pages plus
   `update_url` in the Firefox manifest, so a new version arrives on its own instead of being
