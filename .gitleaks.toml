@@ -1,0 +1,8 @@
+# gitleaks config: the default rules, plus an allowlist for the obviously fake
+# key the TV service tests and plan docs use as a fixture.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "Dummy fixture key, not a secret"
+regexes = ['''abcdef0123456789abcdef''']
