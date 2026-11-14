@@ -171,8 +171,11 @@ globalThis.TDDW.overlayCss = `
     padding: 1px 7px;
     font-family: inherit;
   }
-  button.cmu-ts { cursor: pointer; }
-  button.cmu-ts:hover { filter: brightness(1.35); }
+  /* Seekable bullet (YouTube): the whole line jumps to its timestamp */
+  .cmu-seekable { cursor: pointer; }
+  .cmu-seekable:hover { background: var(--accent-soft); }
+  .cmu-seekable:hover .cmu-ts { filter: brightness(1.35); }
+  .cmu-seekable:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
   .cmu-text { flex: 1; }
 
   /* Provenance badge: where the recap came from (trust signal) */
