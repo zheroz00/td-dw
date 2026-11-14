@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "TD;DW",
-  "version": "0.2.1",
+  "version": "0.3.0",
   "description": "Too Distracted, Didn't Watch: spoiler-free recaps of what you're watching, and quick summaries of articles you're reading.",
   "permissions": ["storage", "scripting", "contextMenus", "activeTab"],
   "host_permissions": ["https://openrouter.ai/*"],

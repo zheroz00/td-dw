@@ -26,8 +26,9 @@ supported video site. It lets TD;DW read that one page's article text, at that m
 it can summarize it. No other pages are touched, and nothing is read in the background.
 
 **`contextMenus`**
-Adds a right-click entry on supported watch pages to open the recap without reaching for
-the toolbar icon or the keyboard shortcut.
+Adds a "TD;DW settings" item to the toolbar icon's right-click menu, so the settings page
+is one click away (Firefox otherwise buries it under Manage Extension). No menu items are
+added to web pages.
 
 **`host_permissions: https://openrouter.ai/*`**
 The default LLM provider. The extension sends the recap request here and reads the
@@ -61,7 +62,7 @@ What is sent, and to whom:
   lines the player has shown on screen in that tab, plus the title.
 - In knowledge mode: only the title and the user's questions.
 - In article mode (the user clicked the icon on a non-video page): the page's article text,
-  title, byline and URL, plus the user's questions.
+  title, byline and site name (not the page URL), plus the user's questions.
 - The user's API key is sent to that same endpoint to authenticate.
 
 Not collected, not sold, not shared with anyone else. TD;DW runs no backend of its own; the
@@ -74,8 +75,11 @@ unrelated to the single purpose, not used to determine creditworthiness.
 ## Privacy policy
 
 Required by AMO whenever any data leaves the device, which it does here. Chrome also
-expects a URL once you declare data transmission. Host it on GitHub Pages alongside the
-repo and link it from both listings.
+expects a URL once you declare data transmission. It lives in the repo as `PRIVACY.md`;
+link both listings to https://github.com/zheroz00/td-dw/blob/main/PRIVACY.md
+
+The Firefox manifest declares `data_collection_permissions.required: ["websiteContent"]`,
+since subtitles and article text are sent to the user's LLM provider.
 
 ## Notes for reviewers (important)
 
