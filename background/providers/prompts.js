@@ -1,7 +1,7 @@
 // Spoiler safety lives here. Expect to iterate on this file more than any
 // other — it is the product.
 
-const BULLET_COUNTS = { short: '3-5', medium: '5-8', detailed: '8-12' };
+export const BULLET_COUNTS = { short: '3-5', medium: '5-8', detailed: '8-12' };
 
 export const NO_KNOWLEDGE_TOKEN = 'NO_KNOWLEDGE';
 

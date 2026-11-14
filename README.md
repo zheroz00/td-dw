@@ -1,13 +1,16 @@
 <div align="center">
   <img src="icons/logo.jpg" alt="TD;DW: Too Distracted, Didn't Watch" width="300">
   <h1>TD;DW</h1>
-  <p><strong>Too Distracted, Didn't Watch.</strong> Spoiler-free "what did I miss?" for the video you're already watching.</p>
+  <p><strong>Too Distracted, Didn't Watch.</strong> Spoiler-free "what did I miss?" for the video you're already watching, and a quick summary of the article you're about to skim.</p>
 </div>
 
 Activate it mid-video and you get a recap of everything that happened **up to your current
 timestamp**, and nothing past it. Works on YouTube, Netflix, Prime Video, Disney+, and your own
 **Jellyfin** server. There's also a follow-up question box, so when the recap leaves you going
 "wait, who's that guy again?" you can just ask, without leaving the page and losing your spot.
+
+It also works on plain web pages: click the icon on any article and you get a short bullet-point
+summary of it, with the same follow-up box for questions about the text.
 
 I built this because I kept pausing shows to go "hang on, what did I miss," then falling into a
 twenty-minute Wikipedia hole and forgetting what I was watching. Now I hit a shortcut and get on
@@ -21,6 +24,8 @@ that out loud.
   <p><em>Left to its own: a spoiler-free recap up to where you paused. Ask a follow-up and it
   answers right in the panel.</em></p>
 </div>
+
+> 📸 **Screenshot needed:** article summary panel open on a news article -> docs/images/article-summary.png
 
 ## Before you start (read this first)
 
@@ -132,6 +137,12 @@ More detail in [firefox/README.md](firefox/README.md).
 ## Use
 
 - On a supported watch page: click the toolbar icon or press **Alt+Shift+U**.
+- **On an article or any other web page:** click the icon (or press the shortcut) and TD;DW
+  reads the page's main text and shows a short summary, led by a one-line bottom line. The
+  follow-up box works the same way, and **Summarize again** re-reads the page. The badge says
+  **"Built from this page's text"**, and a very long article is summarized from its first part
+  (the badge tells you). Pages that aren't articles get a short notice, and browser pages
+  like `about:` or the extension stores (which refuse injection) flash a red "!" on the icon.
 - The video pauses (you can turn that off) and an overlay shows bullet points covering everything
   up to the current time. In transcript mode, click a bullet's time chip to jump the video to that
   moment.
@@ -169,8 +180,8 @@ Setup, the remote button and the phone bookmark are in [tv/README.md](tv/README.
 **What it sends, and where.** TD;DW has no backend, no analytics, no telemetry. The only things
 that leave your machine are the recap request (the title, plus in transcript mode the subtitles,
 or on Netflix/Prime/Disney+ the subtitle lines this tab has shown on screen,
-up to your current timestamp) and any follow-up questions you type along with the recap they're
-about. All of it goes **only to the LLM endpoint you configure, with your own API key**. Nothing
+up to your current timestamp), the article text when you click the icon on a web page, and any
+follow-up questions you type along with the recap or summary they're about. All of it goes **only to the LLM endpoint you configure, with your own API key**. Nothing
 is logged, and nothing phones home. (The one extra outbound header is an `HTTP-Referer`/`X-Title`
 on OpenRouter requests, which OpenRouter uses for app attribution; it says nothing about you.)
 
@@ -186,7 +197,12 @@ server, and nowhere else.
   endpoint.
 - **`contextMenus`**: adds a "TD;DW settings" item to the toolbar icon's right-click menu.
 - **`scripting`**: registers the Jellyfin adapter on your server's own origin at runtime (that
-  address isn't known at build time, so it can't be a static entry).
+  address isn't known at build time, so it can't be a static entry). It also injects the
+  article summarizer into a page when you ask for it.
+- **`activeTab`**: when you click the icon or press the shortcut on a page that isn't a supported
+  video site, this lets TD;DW read that one page's text and send it to your configured LLM
+  endpoint to be summarized. It only applies to the tab you acted on, only at that moment, and
+  nothing is read in the background.
 - **Default site access is deliberately minimal.** The extension only auto-runs on
   **YouTube, Netflix, Prime Video, and Disney+** (the `content_scripts` block in the manifest),
   plus `openrouter.ai` for the default provider. That's it on install.
@@ -209,6 +225,12 @@ server, and nowhere else.
 
 ## Architecture (for future me)
 
+- **Article mode** is a second bundle, `content/article/` plus the vendored Readability, that is
+  not a static content script: the service worker injects it with `chrome.scripting.executeScript`
+  when you click the icon on a tab with no TD;DW script (`activeTab` covers that one click, so no
+  extra host permission). It reuses the same overlay and passes the extracted text to the worker
+  as `GET_ARTICLE_SUMMARY` / `ASK_ARTICLE_QUESTION`; prompts are in
+  `background/providers/article-prompts.js`. Pages that refuse injection get the old red badge.
 - **Content scripts share `globalThis.TDDW`** (no build step); the manifest loads them in
   dependency order. The overlay is a closed-shadow-DOM panel that never passes LLM output through
   `innerHTML`. (CSS class prefix is `cmu-`, and the config storage key is `catchMeUpConfig`; both
@@ -287,6 +309,8 @@ shipping quietly.
 
 ## Credits
 
+- Article text extraction uses [Mozilla Readability](https://github.com/mozilla/readability)
+  (Apache 2.0), vendored unmodified in `content/vendor/readability`.
 - YouTube caption retrieval is adapted from the technique in the open-source
   [`youtube-transcript`](https://www.npmjs.com/package/youtube-transcript) package (MIT), the
   InnerTube ANDROID-client recipe, reworked here for a browser content-script context.

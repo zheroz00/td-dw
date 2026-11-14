@@ -50,16 +50,18 @@ globalThis.TDDW.overlay = (() => {
       title: panel.querySelector('.cmu-title'),
       subtitle: panel.querySelector('.cmu-subtitle'),
       chip: panel.querySelector('.cmu-chip'),
+      progressTrack: panel.querySelector('.cmu-progress'),
       progress: panel.querySelector('.cmu-progress-fill'),
       body: panel.querySelector('.cmu-body'),
       askForm: panel.querySelector('.cmu-ask'),
       askInput: panel.querySelector('.cmu-ask-input'),
       askSend: panel.querySelector('.cmu-ask-send'),
+      refresh: panel.querySelector('.cmu-refresh'),
       qa: null // the Q&A thread container, (re)created per recap in showRecap
     };
     panel.querySelector('.cmu-close').addEventListener('click', hide);
     panel.querySelector('.cmu-dismiss').addEventListener('click', hide);
-    panel.querySelector('.cmu-refresh').addEventListener('click', () => handlers.onRefresh?.());
+    els.refresh.addEventListener('click', () => handlers.onRefresh?.());
     els.askForm.addEventListener('submit', (e) => {
       e.preventDefault();
       submitQuestion();
@@ -104,28 +106,49 @@ globalThis.TDDW.overlay = (() => {
 
   function setContext(videoState) {
     ensure();
+    const isArticle = videoState?.kind === 'article';
     // Hide the follow-up row by default; only showRecap re-enables it. This
     // keeps it off during loading / error / unknown-title / <1-min states.
     els.askForm.hidden = true;
-    els.panel.dataset.service = videoState?.service || '';
+    // An article's "service" is just its site name; don't let a site called
+    // "Netflix" borrow that service's accent colour.
+    els.panel.dataset.service = isArticle ? '' : videoState?.service || '';
     // YouTube gets the full-height column (covers the suggested-videos rail);
-    // streaming services keep the compact card.
-    els.panel.classList.toggle('cmu-tall', videoState?.service === 'YouTube');
+    // streaming services keep the compact card. Articles stay compact too: the
+    // card grows with its content and scrolls, so it never blankets the page
+    // being read.
+    els.panel.classList.toggle('cmu-tall', !isArticle && videoState?.service === 'YouTube');
 
     els.title.textContent = videoState?.title || 'TD;DW';
-    if (videoState?.episodeInfo) {
-      els.subtitle.textContent = videoState.episodeInfo;
+    // Subtitle: episode info for video; byline and site for an article (one of
+    // them only when they match, which some sites do).
+    const subtitle = isArticle
+      ? [...new Set([videoState.byline, videoState.siteName].filter(Boolean))].join(' · ')
+      : videoState?.episodeInfo;
+    if (subtitle) {
+      els.subtitle.textContent = subtitle;
       els.subtitle.hidden = false;
     } else {
       els.subtitle.hidden = true;
     }
 
-    if (Number.isFinite(videoState?.currentTimeSeconds)) {
+    if (isArticle) {
+      els.chip.textContent = `${videoState.readingMinutes} min read`;
+      els.chip.hidden = !Number.isFinite(videoState.readingMinutes);
+    } else if (Number.isFinite(videoState?.currentTimeSeconds)) {
       els.chip.textContent = `up to ${formatTime(videoState.currentTimeSeconds)}`;
       els.chip.hidden = false;
     } else {
       els.chip.hidden = true;
     }
+
+    // Set both ways on every call: the one overlay instance serves whichever
+    // mode opened it last, so video defaults must be restored explicitly.
+    els.progressTrack.hidden = isArticle;
+    els.refresh.textContent = isArticle ? 'Summarize again' : 'Refresh at current time';
+    const askLabel = isArticle ? 'Ask about this article…' : 'Ask a follow-up…';
+    els.askInput.placeholder = askLabel;
+    els.askInput.setAttribute('aria-label', isArticle ? askLabel : 'Ask a follow-up question');
 
     const pct =
       Number.isFinite(videoState?.currentTimeSeconds) &&
@@ -165,8 +188,9 @@ globalThis.TDDW.overlay = (() => {
       </div>
       <div class="cmu-loading-label"></div>
     `;
+    const verb = videoState?.kind === 'article' ? 'Summarizing' : 'Catching you up on';
     els.body.querySelector('.cmu-loading-label').textContent = videoState?.title
-      ? `Catching you up on “${videoState.title}”…`
+      ? `${verb} “${videoState.title}”…`
       : 'Catching you up…';
     show();
   }
@@ -230,12 +254,17 @@ globalThis.TDDW.overlay = (() => {
     // Hybrid's fallback when the model doesn't know the title: grounded, but
     // only for the window the captions covered.
     captions: { cls: 'cmu-src-grounded', icon: '✓', label: 'Built from the subtitles seen so far' },
-    knowledge: { cls: 'cmu-src-memory', icon: '🧠', label: 'From the model’s memory, may be imperfect' }
+    knowledge: { cls: 'cmu-src-memory', icon: '🧠', label: 'From the model’s memory, may be imperfect' },
+    // Article mode: always the page's own text, never the model's memory.
+    article: { cls: 'cmu-src-grounded', icon: '✓', label: 'Built from this page’s text' }
   };
 
   function badgeLabel(source, videoState) {
     const base = SOURCE_BADGES[source].label;
     const transcript = videoState?.transcript;
+    if (source === 'article') {
+      return videoState?.truncated ? `${base} (long article, summarized from the first part)` : base;
+    }
     if (source === 'transcript') {
       // A transcript that had to be sampled down to fit the budget is still
       // grounded, just incomplete: say so rather than implying full coverage.

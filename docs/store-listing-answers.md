@@ -5,9 +5,9 @@ permissions change, because both stores ask you to justify every one of them.
 
 ## Single purpose
 
-TD;DW generates a spoiler-free recap of the movie, show or video you are currently
-watching, covering only the part you have already watched, up to the current playback
-position.
+TD;DW catches you up on what's in your current tab: a spoiler-free recap of the video
+you're watching (covering only the part you have already watched, up to the current
+playback position), or a short summary of the article you're reading.
 
 ## Permission justifications
 
@@ -19,6 +19,11 @@ URL, and display preferences. Nothing else is stored, and nothing is synced to u
 Registers the recap content scripts on a Jellyfin server at runtime. A self-hosted
 Jellyfin origin is not known at build time, so it cannot be listed statically in the
 manifest. Used only for the origin you configure in options.
+
+**`activeTab`**
+Used only when you click the toolbar icon or press the shortcut on a page that isn't a
+supported video site. It lets TD;DW read that one page's article text, at that moment, so
+it can summarize it. No other pages are touched, and nothing is read in the background.
 
 **`contextMenus`**
 Adds a right-click entry on supported watch pages to open the recap without reaching for
@@ -55,6 +60,8 @@ What is sent, and to whom:
 - In hybrid mode (Netflix, Prime Video, Disney+ with subtitles switched on): the subtitle
   lines the player has shown on screen in that tab, plus the title.
 - In knowledge mode: only the title and the user's questions.
+- In article mode (the user clicked the icon on a non-video page): the page's article text,
+  title, byline and URL, plus the user's questions.
 - The user's API key is sent to that same endpoint to authenticate.
 
 Not collected, not sold, not shared with anyone else. TD;DW runs no backend of its own; the
@@ -80,4 +87,5 @@ review will bounce:
   captions to test against.
 
 Also tell them the keyboard shortcut (Alt+Shift+U) and that the overlay appears on a
-supported watch page after playback has started.
+supported watch page after playback has started. For article mode, tell them to open any
+news article or blog post and click the toolbar icon.
