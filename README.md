@@ -4,18 +4,13 @@
   <p><strong>Too Distracted, Didn't Watch.</strong> Spoiler-free "what did I miss?" for the video you're already watching, and a quick summary of the article you're about to skim.</p>
 </div>
 
-Activate it mid-video and you get a recap of everything that happened **up to your current
-timestamp**, and nothing past it. Works on YouTube, Netflix, Prime Video, Disney+, and your own
-**Jellyfin** server. There's also a follow-up question box, so when the recap leaves you going
-"wait, who's that guy again?" you can just ask, without leaving the page and losing your spot.
-
-It also works on plain web pages: click the icon on any article and you get a short bullet-point
-summary of it, with the same follow-up box for questions about the text.
+Press one button mid-video and get a recap of everything that happened **up to where you
+are**, and nothing past it. Click it on an article and get a short summary instead. Either way,
+there's a follow-up box for "wait, who's that guy again?"
 
 I built this because I kept pausing shows to go "hang on, what did I miss," then falling into a
-twenty-minute Wikipedia hole and forgetting what I was watching. Now I hit a shortcut and get on
-with it. Full disclosure: it's a joint project with Claude (Anthropic's AI), and I'm happy to say
-that out loud.
+twenty-minute Wikipedia hole and forgetting what I was watching. Full disclosure: it's a joint
+project with Claude (Anthropic's AI), and I'm happy to say that out loud.
 
 <div align="center">
   <img src="docs/screenshot-recap.jpg" alt="TD;DW recap panel over a paused film, with a follow-up question box" width="800">
@@ -27,45 +22,38 @@ that out loud.
 
 > 📸 **Screenshot needed:** article summary panel open on a news article -> docs/images/article-summary.png
 
-## Before you start (read this first)
+## Features
 
-- **You need an LLM endpoint.** Pick a provider in the extension options:
-  - **OpenRouter**: one key, every model.
-  - **Google Gemini (AI Studio)**: uses your [AI Studio](https://aistudio.google.com/apikey)
-    key via Google's OpenAI-compatible endpoint. Handy if you've got AI Studio credits sitting there.
-  - **Custom / Local**: any OpenAI-compatible endpoint (Ollama, LM Studio, llama.cpp).
-- **Model choice matters most in knowledge mode.** For titles TD;DW recaps *from the model's
-  own memory* (Netflix/Disney, or a Jellyfin item with no subtitles), small models hand you vague,
-  plot-shaped filler, so reach for a stronger model there. **Transcript mode** (YouTube captions,
-  Jellyfin subtitles) feeds the model the real dialogue, so it stays accurate even on cheap, fast
-  models and even for brand-new or obscure content. The default model is now
-  `google/gemini-3.8-flash` (or `gemini-3.8-flash` on the Gemini preset). Thinking effort is tuned
-  per task: low in transcript mode (summarizing captions gains nothing from extra thinking),
-  medium in knowledge mode (identifying the work and judging what's happened before your timestamp
-  benefits from it), and this is applied automatically on OpenRouter and Gemini, whichever you pick.
-- **Every recap tells you where it came from.** A badge at the top reads **green, "Built from
-  this title's subtitles"** (grounded, trustworthy), **amber, "From the model's memory, may be
-  imperfect"** (recalled from training, so treat it as a refresher), or the in-between **"From
-  memory, anchored by subtitles from 12:30 on"** (see the next bullet). It's an honest signal, not
-  a made-up confidence score.
-- **Turn subtitles on for Netflix, Prime Video and Disney+.** Those players never hand over a
-  subtitle file, but they do paint each line on screen, and TD;DW quietly collects the lines it
-  sees from the moment the tab loads. It can't recap from those alone (it only has what you've
-  watched in this tab), so it uses them to pin down exactly where you are in the story, which is
-  the thing memory-only recaps get wrong, and grounds the most recent bullets in real dialogue.
-  If the model doesn't know the show at all, TD;DW recaps just the lines it collected instead,
-  and the green badge says which stretch that covers ("from 12:30 on").
-  Subtitles off means memory only, and the badge says so. A very long transcript gets sampled down to fit the configured
-  budget rather than sent whole, and when that happens the badge adds "(sampled to fit)" so you
-  know the recap is grounded but not complete. Tune how much subtitle text gets sent with the
-  **Transcript size** option (Standard for cloud models, Local for small-context local ones).
-- **The keyboard shortcut can silently collide** with an existing binding, so check or change it
-  at `chrome://extensions/shortcuts` (Firefox: `about:addons` → gear → Manage Extension Shortcuts).
-- **Disney+ (ad tier):** playback position is read from the player's own scrub bar, because the
-  raw video stream has stitched-in ads. If you get "couldn't read the playback position," wave your
-  mouse over the player so the controls appear, then hit "Refresh at current time".
+- **Spoiler-free video recaps** on YouTube, Netflix, Prime Video, Disney+ and your own Jellyfin
+  server, covering only what you've already watched.
+- **Article summaries** on any web page, leading with the bottom line.
+- **Follow-up questions** right in the panel, spoiler-free by default.
+- **Click a bullet to jump** back to that moment (YouTube).
+- **Honest source badge** on every recap: built from the real subtitles, or from the model's memory.
+- **Your model, your key:** OpenRouter, Google Gemini, or any OpenAI-compatible endpoint,
+  including a model on your own machine. No accounts, no tracking.
+- **On your TV, too:** an optional self-hosted service brings recaps to Android TV.
 
 ## Install
+
+Grab the latest files from the **[Releases page](https://github.com/zheroz00/td-dw/releases/latest)**.
+
+**Firefox:** download the `.xpi`, open `about:addons`, click the gear icon, choose **Install
+Add-on From File** and pick it. It's signed by Mozilla, so it stays installed.
+
+**Chrome, Edge or Brave:** download the `-chrome.zip` and unzip it into a folder you'll keep.
+Open `chrome://extensions`, turn on **Developer mode**, click **Load unpacked** and pick the folder.
+
+**Then add your AI key:** right-click the TD;DW icon, choose **TD;DW settings**, pick a provider,
+paste your key, hit **Test connection** and **Save**. No key yet? [OpenRouter](https://openrouter.ai)
+takes a minute to sign up for, and a few dollars of credit lasts a long time.
+
+### Build from source
+
+Only needed if you want to change the code or sign your own Firefox build.
+
+<details>
+<summary>Building, loading unpacked, and signing for Firefox</summary>
 
 Start with `scripts/build.sh` (needs Node). It writes both browser builds:
 
@@ -134,9 +122,20 @@ AMO will not sign the same version number twice, so before each re-sign run
 
 More detail in [firefox/README.md](firefox/README.md).
 
+</details>
+
 ## Use
 
-- On a supported watch page: click the toolbar icon or press **Alt+Shift+U**.
+- **Video:** start playing, then click the TD;DW icon or press **Alt+Shift+U**.
+- **Article:** click the icon on any article or blog post.
+- **Questions:** type into the box at the bottom of the panel.
+- **Keep watching**, then hit **Refresh at current time** to extend the recap.
+
+### Tips and details
+
+<details>
+<summary>Source badges, subtitles on Netflix, model choice, shortcuts and more</summary>
+
 - **On an article or any other web page:** click the icon (or press the shortcut) and TD;DW
   reads the page's main text and shows a short summary, led by a one-line bottom line. The
   follow-up box works the same way, and **Summarize again** re-reads the page. The badge says
@@ -144,7 +143,7 @@ More detail in [firefox/README.md](firefox/README.md).
   (the badge tells you). Pages that aren't articles get a short notice, and browser pages
   like `about:` or the extension stores (which refuse injection) flash a red "!" on the icon.
 - The video pauses (you can turn that off) and an overlay shows bullet points covering everything
-  up to the current time. In transcript mode, click a bullet's time chip to jump the video to that
+  up to the current time. On YouTube, click a bullet to jump the video to that
   moment.
 - **Got a question about the recap?** Type it into the follow-up box at the bottom of the panel
   and ask away. It remembers the back-and-forth while the panel is open and forgets it the moment
@@ -156,7 +155,51 @@ More detail in [firefox/README.md](firefox/README.md).
   when the site adapter supplies them, otherwise the model's memory), or force one mode or the
   other to compare the two on the same title.
 
+
+- **You need an LLM endpoint.** Pick a provider in the extension options:
+  - **OpenRouter**: one key, every model.
+  - **Google Gemini (AI Studio)**: uses your [AI Studio](https://aistudio.google.com/apikey)
+    key via Google's OpenAI-compatible endpoint. Handy if you've got AI Studio credits sitting there.
+  - **Custom / Local**: any OpenAI-compatible endpoint (Ollama, LM Studio, llama.cpp).
+- **Model choice matters most in knowledge mode.** For titles TD;DW recaps *from the model's
+  own memory* (Netflix/Disney, or a Jellyfin item with no subtitles), small models hand you vague,
+  plot-shaped filler, so reach for a stronger model there. **Transcript mode** (YouTube captions,
+  Jellyfin subtitles) feeds the model the real dialogue, so it stays accurate even on cheap, fast
+  models and even for brand-new or obscure content. The default model is now
+  `google/gemini-3.8-flash` (or `gemini-3.8-flash` on the Gemini preset). Thinking effort is tuned
+  per task: low in transcript mode (summarizing captions gains nothing from extra thinking),
+  medium in knowledge mode (identifying the work and judging what's happened before your timestamp
+  benefits from it), and this is applied automatically on OpenRouter and Gemini, whichever you pick.
+- **Every recap tells you where it came from.** A badge at the top reads **green, "Built from
+  this title's subtitles"** (grounded, trustworthy), **amber, "From the model's memory, may be
+  imperfect"** (recalled from training, so treat it as a refresher), or the in-between **"From
+  memory, anchored by subtitles from 12:30 on"** (see the next bullet). It's an honest signal, not
+  a made-up confidence score.
+- **Turn subtitles on for Netflix, Prime Video and Disney+.** Those players never hand over a
+  subtitle file, but they do paint each line on screen, and TD;DW quietly collects the lines it
+  sees from the moment the tab loads. It can't recap from those alone (it only has what you've
+  watched in this tab), so it uses them to pin down exactly where you are in the story, which is
+  the thing memory-only recaps get wrong, and grounds the most recent bullets in real dialogue.
+  If the model doesn't know the show at all, TD;DW recaps just the lines it collected instead,
+  and the green badge says which stretch that covers ("from 12:30 on").
+  Subtitles off means memory only, and the badge says so. A very long transcript gets sampled down to fit the configured
+  budget rather than sent whole, and when that happens the badge adds "(sampled to fit)" so you
+  know the recap is grounded but not complete. Tune how much subtitle text gets sent with the
+  **Transcript size** option (Standard for cloud models, Local for small-context local ones).
+- **The keyboard shortcut can silently collide** with an existing binding, so check or change it
+  at `chrome://extensions/shortcuts` (Firefox: `about:addons` → gear → Manage Extension Shortcuts).
+- **Disney+ (ad tier):** playback position is read from the player's own scrub bar, because the
+  raw video stream has stitched-in ads. If you get "couldn't read the playback position," wave your
+  mouse over the player so the controls appear, then hit "Refresh at current time".
+
+</details>
+
 ### Jellyfin
+
+Add your server's address in settings and recaps use your library's real subtitles.
+
+<details>
+<summary>Show details</summary>
 
 Point TD;DW at your Jellyfin web UI in options (**Jellyfin server URL**, e.g.
 `http://jellyfin.local:8096`) and **reload the Jellyfin tab**. It runs on the Jellyfin page itself,
@@ -165,7 +208,14 @@ reads your logged-in session token from the page (no separate API key), and pull
 movies included. Items with only image-based subs (PGS/VOBSUB) or no subs fall back to knowledge
 mode automatically.
 
+</details>
+
 ### On your TV (Jellyfin and YouTube)
+
+An optional self-hosted service: press a button on your Android TV remote and the recap opens on the TV.
+
+<details>
+<summary>Show details</summary>
 
 A browser extension can't run on a TV, so there's a small self-hosted service for it. Press a
 button on your Android TV remote while Jellyfin is playing and a spoiler-free recap page opens
@@ -175,7 +225,15 @@ Setup, the remote button and the phone bookmark are in [tv/README.md](tv/README.
 
 > 📸 **Screenshot needed:** phone view with a follow-up answer -> docs/images/tv-phone.png
 
+</details>
+
 ## Permissions & privacy
+
+No backend, no tracking. TD;DW only sends anything when you click, and only to the AI provider you
+chose. Full policy: [PRIVACY.md](PRIVACY.md).
+
+<details>
+<summary>What is sent, and why each permission is needed</summary>
 
 **What it sends, and where.** (Full policy: [PRIVACY.md](PRIVACY.md).) TD;DW has no backend, no analytics, no telemetry. The only things
 that leave your machine are the recap request (the title, plus in transcript mode the subtitles,
@@ -223,7 +281,12 @@ server, and nowhere else.
 - YouTube captions are fetched through YouTube's internal InnerTube API, which is a technique, not
   an official or supported endpoint, so that path can break when YouTube changes things.
 
+</details>
+
 ## Architecture (for future me)
+
+<details>
+<summary>Show details</summary>
 
 - **Article mode** is a second bundle, `content/article/` plus the vendored Readability, that is
   not a static content script: the service worker injects it with `chrome.scripting.executeScript`
@@ -278,7 +341,23 @@ server, and nowhere else.
   provider-specific reasoning-effort settings (OpenRouter, Gemini) and falls back without them on a
   400.
 
+</details>
+
+## How it was built
+
+<details>
+<summary>Show details</summary>
+
+I planned and designed TD;DW, and Claude (Anthropic's AI) wrote the code, working from my
+specs and my testing on real shows and real pages. Every feature got hands-on testing in the
+browser before it shipped.
+
+</details>
+
 ## Roadmap
+
+<details>
+<summary>Show details</summary>
 
 - TV: a native Android TV panel with follow-up questions on the remote, and a short 'recap ready'
   popup via Jellyfin's DisplayMessage.
@@ -301,19 +380,31 @@ server, and nowhere else.
   `update_url` in the Firefox manifest, so a new version arrives on its own instead of being
   hand-copied between machines.
 
+</details>
+
 ## Development
+
+<details>
+<summary>Show details</summary>
 
 `npm test` runs the parser and prompt tests (no browser needed). `scripts/build.sh` runs them
 again before assembling either browser build, so a broken test fails the build rather than
 shipping quietly.
 
+</details>
+
 ## Credits
+
+<details>
+<summary>Show details</summary>
 
 - Article text extraction uses [Mozilla Readability](https://github.com/mozilla/readability)
   (Apache 2.0), vendored unmodified in `content/vendor/readability`.
 - YouTube caption retrieval is adapted from the technique in the open-source
   [`youtube-transcript`](https://www.npmjs.com/package/youtube-transcript) package (MIT), the
   InnerTube ANDROID-client recipe, reworked here for a browser content-script context.
+
+</details>
 
 ## License
 
