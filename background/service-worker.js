@@ -1,7 +1,8 @@
 import { getConfig, endpointLabel } from './config.js';
 import { pickProvider } from './providers/index.js';
 import { buildQuestionMessages } from './providers/prompts.js';
-import { chatCompletion } from './llm-client.js';
+import { buildArticleMessages, buildArticleQuestionMessages } from './providers/article-prompts.js';
+import { chatCompletion, chatCompletionDetailed } from './llm-client.js';
 
 // --- Jellyfin: dynamic content-script registration -------------------------
 // The Jellyfin server origin isn't known at build time, so it can't live in the
@@ -31,6 +32,20 @@ const JELLYFIN_ISOLATED_JS = [
   'content/content.js'
 ];
 const JELLYFIN_MAIN_JS = ['content/main-world/media-session-probe.js'];
+
+// --- Article mode: on-demand injection -------------------------------------
+// Pages without a static content script get this bundle injected when the user
+// clicks the icon or presses the shortcut (activeTab grants that one tab, so no
+// broad host permission is needed). Order matters: Readability and the text
+// helpers first, the orchestrator last. The overlay files are shared with the
+// video bundle.
+const ARTICLE_JS = [
+  'content/vendor/readability/Readability.js',
+  'content/article/article-text.js',
+  'content/ui/overlay-styles.js',
+  'content/ui/overlay.js',
+  'content/article/article-content.js'
+];
 
 // Match patterns can't carry a port, so "http://host/*" covers any port (8096).
 function originPattern(rawUrl) {
@@ -118,21 +133,78 @@ chrome.runtime.onStartup.addListener(() => {
   syncJellyfinScripts().catch((err) => console.warn('[TD;DW] Jellyfin script sync failed:', err.message));
 });
 
+// Flash a badge so a click on a page we can't read isn't silent.
+async function flashBadge(tabId) {
+  try {
+    await chrome.action.setBadgeBackgroundColor({ tabId, color: '#c0392b' });
+    await chrome.action.setBadgeText({ tabId, text: '!' });
+    setTimeout(() => {
+      chrome.action.setBadgeText({ tabId, text: '' }).catch(() => {});
+    }, 3000);
+  } catch { /* tab may be gone */ }
+}
+
+// Only http(s) pages can hold an article. An undefined url (some browsers hide
+// it) is let through: the injection itself rejects pages we can't touch.
+function isInjectable(tab) {
+  return tab.url === undefined || /^https?:/i.test(tab.url);
+}
+
+// Match pattern ("*://*.primevideo.com/*") -> RegExp. Only the shapes our own
+// manifest and originPattern() produce need handling.
+function patternToRegExp(pattern) {
+  const escaped = pattern.replace(/[.+?^${}()|[\]\\]/g, '\\$&').replace(/\*/g, '.*');
+  return new RegExp(`^${escaped}$`, 'i');
+}
+
+// A video site whose content script didn't answer means the tab predates an
+// extension reload. Summarizing the watch page as an "article" would be
+// nonsense there, so keep the old badge (the fix is refreshing the tab).
+async function isVideoSite(url) {
+  if (!url) return false;
+  const patterns = chrome.runtime.getManifest().content_scripts.flatMap((cs) => cs.matches);
+  const { jellyfinUrl } = await getConfig();
+  if (jellyfinUrl) {
+    try { patterns.push(originPattern(jellyfinUrl)); } catch { /* invalid URL: no Jellyfin site */ }
+  }
+  return patterns.some((p) => patternToRegExp(p).test(url));
+}
+
+// True once article-content.js has run in this tab. Guards a fast double click
+// from injecting the bundle twice (a second overlay.js would replace the
+// overlay the first run attached its handlers to).
+async function articleModeLoaded(tabId) {
+  const [res] = await chrome.scripting.executeScript({
+    target: { tabId },
+    func: () => !!globalThis.TDDW?.articleModeLoaded
+  });
+  return !!res?.result;
+}
+
 async function toggleOverlay(tab) {
   if (!tab?.id) return;
   try {
     await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_OVERLAY' });
+    return;
   } catch (err) {
-    // No content script in this tab: unsupported page, or the tab was opened
-    // before the extension was (re)loaded. Flash a badge so the click isn't silent.
+    // No content script in this tab: not a supported video site, or the tab was
+    // opened before the extension was (re)loaded. Try article mode instead.
     console.warn('[TD;DW] no content script in tab', tab.id, err.message);
-    try {
-      await chrome.action.setBadgeBackgroundColor({ tabId: tab.id, color: '#c0392b' });
-      await chrome.action.setBadgeText({ tabId: tab.id, text: '!' });
-      setTimeout(() => {
-        chrome.action.setBadgeText({ tabId: tab.id, text: '' }).catch(() => {});
-      }, 3000);
-    } catch { /* tab may be gone */ }
+  }
+
+  if (!isInjectable(tab) || (await isVideoSite(tab.url))) {
+    await flashBadge(tab.id);
+    return;
+  }
+  try {
+    if (!(await articleModeLoaded(tab.id))) {
+      await chrome.scripting.executeScript({ target: { tabId: tab.id }, files: ARTICLE_JS });
+    }
+    await chrome.tabs.sendMessage(tab.id, { type: 'TOGGLE_OVERLAY' });
+  } catch (err) {
+    // Browser-internal pages, extension stores and PDF viewers refuse injection.
+    console.warn('[TD;DW] article mode unavailable in tab', tab.id, err.message);
+    await flashBadge(tab.id);
   }
 }
 
@@ -170,6 +242,52 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
         msg.videoState,
         config,
         msg.recapText,
+        msg.history || [],
+        msg.question
+      );
+      const answer = await chatCompletion(config, messages, { effort: 'medium' });
+      sendResponse({ ok: true, answer });
+    })().catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true; // async sendResponse
+  }
+
+  if (msg?.type === 'GET_ARTICLE_SUMMARY') {
+    (async () => {
+      const text = msg.article?.text;
+      if (typeof text !== 'string' || !text.trim()) {
+        sendResponse({ ok: false, error: 'No article text to summarize.' });
+        return;
+      }
+      const config = await getConfig();
+      const llm = { endpoint: endpointLabel(config.baseUrl), model: config.model };
+      if (!config.apiKey && (config.baseUrl || '').includes('openrouter.ai')) {
+        sendResponse({ ok: false, error: 'No API key configured. Open settings to add your OpenRouter key.', llm });
+        return;
+      }
+      try {
+        const { text: summaryText, model: servedModel } = await chatCompletionDetailed(
+          config, buildArticleMessages(msg.article, config), { temperature: 0, effort: 'low' }
+        );
+        const served = { ...llm, servedModel };
+        if (!summaryText?.trim()) {
+          sendResponse({ ok: false, error: 'The model returned an empty summary. Try again, or pick a different model in settings.', llm: served });
+          return;
+        }
+        sendResponse({ ok: true, summaryText, llm: served });
+      } catch (err) {
+        sendResponse({ ok: false, error: err.message, llm });
+      }
+    })().catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true; // async sendResponse
+  }
+
+  if (msg?.type === 'ASK_ARTICLE_QUESTION') {
+    (async () => {
+      const config = await getConfig();
+      const messages = buildArticleQuestionMessages(
+        msg.article,
+        config,
+        msg.summaryText,
         msg.history || [],
         msg.question
       );
